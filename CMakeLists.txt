@@ -25,7 +25,7 @@ set(SOURCES
 )
 
 set(HEADERS
-    "src/config.h"
+    "src/constants.h"
     "src/typing_test.h"
     "src/word_store.h"
     "src/helpers.h"

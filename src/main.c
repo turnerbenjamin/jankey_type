@@ -1,4 +1,4 @@
-#include "config.h"
+#include "constants.h"
 #include "err.h"
 #include "typing_test.h"
 #include "word_store.h"
