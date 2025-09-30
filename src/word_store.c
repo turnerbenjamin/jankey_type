@@ -1,38 +1,36 @@
 #include "word_store.h"
+#include "err.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
-bool word_store_read_line(FILE *s, char **lp);
 void words_free(char **words, size_t count);
+bool word_store_read_line(Err **err, FILE *s, char **lp);
 
-bool word_store_init(WordStore **ws, char *dict_path) {
-
+void word_store_init(Err **err, WordStore **ws, const char *dict_path) {
     FILE *s = fopen(dict_path, "r");
     if (!s) {
-        fputs("Failed to open dict path: ", stderr);
-        fputs(dict_path, stderr);
-        fputs("\n", stderr);
-        return false;
+        *err = ERR_MAKE("Failed to open dict path: %s", dict_path);
+        return;
     }
 
     size_t buff_len = 256;
     char **words = calloc(buff_len, sizeof(*words));
     if (!words) {
-        fputs("Unable to allocate memory for words\n", stderr);
         fclose(s);
-        return false;
+        *err = ERR_MAKE("Unable to allocate memory for words list");
+        return;
     }
 
     size_t count = 0;
-    bool is_err = false;
-
-    while (word_store_read_line(s, &words[count])) {
+    Err *f_err = NULL;
+    while (word_store_read_line(&f_err, s, &words[count])) {
         count++;
         if (count >= buff_len) {
             buff_len += 256;
             char **t = realloc(words, buff_len * sizeof(*words));
             if (!t) {
-                is_err = true;
+                f_err = ERR_MAKE("Error resizing buffer");
                 break;
             } else {
                 words = t;
@@ -40,24 +38,31 @@ bool word_store_init(WordStore **ws, char *dict_path) {
         }
     }
 
-    if (is_err || ferror(s)) {
+    if (f_err || ferror(s)) {
         words_free(words, count);
         words = NULL;
+        if (ferror(s)) {
+            *err = ERR_MAKE("File error");
+            err_destroy(&f_err);
+        } else {
+            *err = f_err;
+        }
         fclose(s);
-        fputs("Error encountered reading dictionary\n", stderr);
-        return false;
+        s = NULL;
+        return;
     }
+
     fclose(s);
     s = NULL;
 
     // Allocate memory for word store
-    size_t words_size = count * sizeof(*words);
-    WordStore *ts = calloc(1, sizeof(*ts) + words_size);
+    size_t word_store_size = sizeof(WordStore) + (count * sizeof(*words));
+    WordStore *ts = calloc((size_t)1, word_store_size);
     if (!ts) {
-        fputs("Unable to allocate memory for word store\n", stderr);
         words_free(words, count);
         words = NULL;
-        return false;
+        *err = ERR_MAKE("Unable to allocate memory for word store");
+        return;
     }
 
     // Copy words to word store;
@@ -69,13 +74,18 @@ bool word_store_init(WordStore **ws, char *dict_path) {
     words = NULL;
 
     *ws = ts;
-    return true;
+    return;
 }
 
-void word_store_cpy_rand(WordStore *ws, char **dest, size_t dest_len) {
+void word_store_cpy_rand(WordStore *ws, char **dest, int dest_len) {
+    if (dest_len < 0) {
+        return;
+    }
+    size_t dest_len_s = (size_t)dest_len;
+
     size_t rand_i;
-    for (size_t i = 0; i < dest_len; i++) {
-        rand_i = rand() % (ws->word_count + 1);
+    for (size_t i = 0; i < dest_len_s; i++) {
+        rand_i = (size_t)rand() % (ws->word_count + 1);
         dest[i] = ws->words[rand_i];
     }
 }
@@ -97,14 +107,19 @@ void word_store_destroy(WordStore **word_store) {
     *word_store = NULL;
 }
 
-bool word_store_read_line(FILE *s, char **lp) {
-    if (feof(s) || ferror(s)) { // Add this check
+bool word_store_read_line(Err **err, FILE *s, char **lp) {
+    if (feof(s)) {
+        return false;
+    }
+    if (ferror(s)) {
+        *err = ERR_MAKE("Error reading file");
         return false;
     }
 
     size_t buff_len = 64;
     char *buff = calloc(buff_len, sizeof(*buff));
     if (!buff) {
+        *err = ERR_MAKE("Unable to allocate memory for buffer");
         return false;
     }
 
@@ -119,6 +134,7 @@ bool word_store_read_line(FILE *s, char **lp) {
             if (!t) {
                 free(buff);
                 buff = NULL;
+                *err = ERR_MAKE("Unable to allocate memory for buffer");
                 return false;
             } else {
                 buff = t;
@@ -136,7 +152,7 @@ bool word_store_read_line(FILE *s, char **lp) {
     buff[n] = '\0';
     *lp = buff;
     return true;
-};
+}
 
 void words_free(char **words, size_t count) {
     for (size_t i = 0; i < count; i++) {
