@@ -2,17 +2,25 @@
 #include "err.h"
 #include "typing_test.h"
 #include "word_store.h"
+#include <ncurses.h>
 #include <stdlib.h>
 #include <time.h>
 
-void init_ncurses(void);
+void init_ncurses(Err **err);
 
 int main() {
-    endwin();
+    Err *err = NULL;
+
+    init_ncurses(&err);
+    if (err) {
+        endwin();
+        err_print(err, stderr);
+        err_destroy(&err);
+        return EXIT_FAILURE;
+    }
     srand((unsigned int)time(NULL));
 
     WordStore *ws;
-    Err *err;
     word_store_init(&err, &ws, "dict/en_gb.txt");
     if (err) {
         word_store_destroy(&ws);
@@ -23,8 +31,6 @@ int main() {
         err_destroy(&err);
         return EXIT_FAILURE;
     }
-
-    init_ncurses();
 
     TypingTest *tt;
     typing_test_init(&err, &tt, ws, WORDS_PER_TEST);
@@ -60,10 +66,26 @@ int main() {
     return EXIT_SUCCESS;
 }
 
-void init_ncurses() {
+void init_ncurses(Err **err) {
     initscr();
+
+    if (!has_colors()) {
+        *err = ERR_MAKE("Colors not available for the terminal");
+        return;
+    }
+    start_color();
+
     clear();
     refresh();
     cbreak();
     noecho();
+
+    if (init_extended_pair(1, COLOR_GREEN, COLOR_BLACK) == ERR) {
+        *err = ERR_MAKE("Unable to initialise pair");
+        return;
+    }
+    if (init_extended_pair(2, COLOR_RED, COLOR_GREEN) == ERR) {
+        *err = ERR_MAKE("Unable to initialise pair");
+        return;
+    }
 }

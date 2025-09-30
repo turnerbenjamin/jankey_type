@@ -4,6 +4,7 @@
 #include "helpers.h"
 #include <limits.h>
 #include <ncurses.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,9 +72,32 @@ void typing_test_start(Err **err, TypingTest *typing_test) {
             waddstr(typing_test->window, " ");
         }
     }
+    curs_set(1);
+    wmove(typing_test->window, 0, typing_test->lines[0].start_pos);
     wrefresh(typing_test->window);
-    refresh();
-    getch();
+
+    /* int line_i = 0; */
+    int word_i = 0;
+    /* int words_in_line = 0; */
+    char *next_char = typing_test->words[word_i];
+    char candidate_char;
+
+    while (true) {
+        int input = wgetch(typing_test->window);
+        if (input < 0 || input > CHAR_MAX) {
+            continue;
+        } else {
+            candidate_char = (char)input;
+        }
+
+        if (candidate_char == *next_char) {
+            wattron(typing_test->window, COLOR_PAIR(1));
+            waddch(typing_test->window, (unsigned)candidate_char);
+            wattroff(typing_test->window, COLOR_PAIR(1));
+            next_char++;
+        }
+        wrefresh(typing_test->window);
+    }
 }
 
 void typing_test_destroy(TypingTest **typing_test) {

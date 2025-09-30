@@ -4,11 +4,12 @@
 #include "err.h"
 #include "word_store.h"
 #include <ncurses.h>
-#include <stdbool.h>
 
 typedef struct Line {
     int start_pos;
     int word_count;
+    char *str;
+    int str_len;
 } Line;
 
 typedef struct TypingTest {
