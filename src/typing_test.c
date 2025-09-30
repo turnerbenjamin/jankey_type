@@ -12,6 +12,9 @@
 
 int typing_test_calc_lines(Err **err, TypingTest *tt);
 
+bool lines_add_word_to_line(Err **err, Line **line, char *word, size_t max_len);
+void lines_destroy(Line **lines);
+
 void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
                       int word_count) {
     size_t tt_size = (sizeof(TypingTest) +
@@ -48,6 +51,7 @@ void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
 }
 
 void typing_test_start(Err **err, TypingTest *typing_test) {
+
     if (!typing_test) {
         *err = ERR_MAKE("Typing test is null");
         return;
@@ -56,22 +60,13 @@ void typing_test_start(Err **err, TypingTest *typing_test) {
     wclear(typing_test->window);
     wmove(typing_test->window, 0, 0);
 
-    for (int word_i = 0, line_i = 0, words_in_line = 0;
-         word_i < typing_test->words_count && line_i < typing_test->lines_count;
-         word_i++, words_in_line++) {
-        if (words_in_line >= typing_test->lines[line_i].word_count) {
-            words_in_line = 0;
-            line_i++;
-        }
-        if (!words_in_line) {
-            wmove(typing_test->window, line_i,
-                  typing_test->lines[line_i].start_pos);
-        }
-        waddstr(typing_test->window, typing_test->words[word_i]);
-        if (words_in_line < typing_test->lines[line_i].word_count - 1) {
-            waddstr(typing_test->window, " ");
-        }
+    Line *l;
+    for (int i = 0; i < typing_test->lines_count; i++) {
+        l = &typing_test->lines[i];
+        wmove(typing_test->window, i, l->start_pos);
+        waddstr(typing_test->window, l->str);
     }
+
     curs_set(1);
     wmove(typing_test->window, 0, typing_test->lines[0].start_pos);
     wrefresh(typing_test->window);
@@ -129,90 +124,176 @@ void typing_test_destroy(TypingTest **typing_test) {
 int typing_test_calc_lines(Err **err, TypingTest *tt) {
     if (!tt) {
         *err = ERR_MAKE("Typing test is null");
-        return 0;
+        return -1;
     }
 
     size_t win_max_x = (size_t)MAX_N(0, getmaxx(tt->window));
     size_t max_x =
         (size_t)MAX_N(0, MIN_N(getmaxx(tt->window), MAX_CHARS_PER_LINE));
-    size_t max_y = (size_t)MAX_N(0, getmaxy(tt->window));
 
-    if (win_max_x < 1 || max_x < 1 || max_y < 1) {
+    if (win_max_x < 1 || max_x < 1) {
         *err = ERR_MAKE("Window dimensions are invalid");
-        return 0;
+        return -1;
     }
 
-    size_t current_line = 0;
-    size_t current_line_len = 0;
-    int current_word = 0;
-
-    Line *ls = calloc(max_y, sizeof(*ls));
-    if (!ls) {
-        *err = ERR_MAKE("Unable to alocate memory for lines");
-        return 0;
+    int lines_buffer_len = 16;
+    Line *lines = calloc((size_t)lines_buffer_len, sizeof(*lines));
+    if (!lines) {
+        *err = ERR_MAKE("Unable to allocate memory for lines");
+        return -1;
     }
 
-    while (current_word < tt->words_count) {
-        unsigned long word_len = strlen(tt->words[current_word]);
-        if (word_len > max_x) {
-            *err = ERR_MAKE(
-                "Word found that exceeds max width of testing window: %ul",
-                max_x);
-            free(ls);
-            return 0;
+    int line_count = 0;
+    Line *current_line = NULL;
+    int current_word_i = 0;
+    char *current_word;
+
+    Err *w_line_err = NULL;
+    while (current_word_i < tt->words_count) {
+        current_line = &lines[line_count];
+        current_word = tt->words[current_word_i];
+
+        // If word success fully added, continue
+        if (lines_add_word_to_line(&w_line_err, &current_line, current_word,
+                                   max_x) &&
+            !w_line_err) {
+            current_line->word_count++;
+            current_word_i++;
+            continue;
         }
 
-        uint64_t needed_space = word_len + (current_line_len > 0 ? 1 : 0);
-        if (current_line_len + needed_space > max_x) {
-            size_t start_pos = (win_max_x - current_line_len) / 2;
-            if (start_pos > INT_MAX) {
-                *err = ERR_MAKE("Unable to convert start pos (%ul) to int",
-                                start_pos);
-                free(ls);
-                return 0;
-            }
-            ls[current_line].start_pos = (int)start_pos;
-            current_line++;
-            if (current_line >= max_y) {
-                *err = ERR_MAKE("Too few window rows (%ld) to display test",
-                                max_y);
-                free(ls);
-                return 0;
-            }
-
-            current_line_len = 0;
-            needed_space = word_len;
+        // If err thrown, clean up and return
+        if (w_line_err) {
+            lines_destroy(&lines);
+            *err = w_line_err;
+            return -1;
         }
 
-        ls[current_line].word_count++;
-        current_line_len += needed_space;
-        current_word++;
+        // If line cannot be added ensure memory allocated for new line
+        if (current_word_i >= lines_buffer_len - 1) {
+            lines_buffer_len += 16;
+            Line *t = realloc(lines, (size_t)lines_buffer_len * sizeof(*lines));
+            if (!t) {
+                lines_destroy(&lines);
+                *err = ERR_MAKE("Error expanding lines buffer");
+                return -1;
+            } else {
+                lines = t;
+            }
+        }
+        line_count++;
     }
 
-    if (current_line_len) {
-        size_t start_pos = (win_max_x - current_line_len) / 2;
+    // If partly written line, increment line count
+    if (current_line && current_line->word_count > 0) {
+        line_count++;
+    }
+
+    // If no line count throw an error
+    if (!line_count) {
+        *err = ERR_MAKE("No lines found");
+        lines_destroy(&lines);
+        return -1;
+    }
+
+    // Calculate start positions
+    for (int i = 0; i < line_count; i++) {
+        Line *l = &lines[i];
+        size_t start_pos =
+            (win_max_x - (size_t)MAX_N(0, l->str_len)) / (size_t)2;
         if (start_pos > INT_MAX) {
             *err =
                 ERR_MAKE("Unable to convert start pos (%ul) to int", start_pos);
-            free(ls);
-            return 0;
+            lines_destroy(&lines);
+            return -1;
         }
-        ls[current_line].start_pos = (int)start_pos;
-        current_line++;
+        l->start_pos = (int)start_pos;
     }
 
-    if (!current_line) {
-        *err = ERR_MAKE("No lines found");
-        free(ls);
+    if (line_count > INT_MAX) {
+        *err =
+            ERR_MAKE("Unable to convert line count (%ul) to int", line_count);
+        lines_destroy(&lines);
         return 0;
     }
-    tt->lines = ls;
 
-    if (current_line > INT_MAX) {
-        *err = ERR_MAKE("Unable to convert current line (%ul) to int",
-                        current_line);
-        free(ls);
-        return 0;
+    tt->lines = lines;
+    return (int)line_count;
+}
+
+bool lines_add_word_to_line(Err **err, Line **line, char *word,
+                            size_t max_len) {
+    // Check max len is at least 1 to avoid calloc error
+    if (max_len < 1) {
+        *err = ERR_MAKE("Max len must be greater than 0");
+        return false;
     }
-    return (int)current_line;
+
+    Line *l = *line;
+    if (!l) {
+        *err = ERR_MAKE("Line is null");
+        return false;
+    }
+
+    // If line string is null allocate memory for string
+    char *s = l->str;
+    if (!s) {
+        s = calloc(max_len + 1, sizeof(*s));
+        l->str = s;
+    }
+    if (!l) {
+        *err = ERR_MAKE("Unable to allocate memory for line string");
+        return false;
+    }
+
+    // Check that the word is not greater that the max width for a line
+    bool do_prefix_with_space = l->str_len != 0;
+    size_t word_len = strlen(word);
+    size_t space_required =
+        do_prefix_with_space ? word_len + (size_t)1 : word_len;
+
+    if (space_required > max_len) {
+        *err = ERR_MAKE("Word found (%s) which exceeds max length (%ul)", word,
+                        max_len);
+        return false;
+    }
+
+    if (l->str_len < 0) {
+        *err = ERR_MAKE("String length cannot be less than 0");
+        return false;
+    }
+    // If word cannot fit in line return false; this is not an error condition
+    if (space_required > max_len - (size_t)l->str_len) {
+        return false;
+    }
+
+    // Add prefix if required to line string
+    if (do_prefix_with_space) {
+        s[l->str_len++] = ' ';
+    }
+
+    // Copy word to line string
+    for (size_t src_i = (size_t)0; src_i < word_len; src_i++) {
+        s[l->str_len++] = word[src_i];
+    }
+
+    // Add null char to end of string
+    s[l->str_len] = '\0';
+    return true;
+}
+
+void lines_destroy(Line **lines) {
+    if (!lines || !*lines) {
+        return;
+    }
+
+    Line *ls = *lines;
+    if (ls->str) {
+        free(ls->str);
+        ls->str = NULL;
+    }
+
+    free(ls);
+    ls = NULL;
+    lines = NULL;
 }

@@ -35,13 +35,14 @@ int main() {
     TypingTest *tt;
     typing_test_init(&err, &tt, ws, WORDS_PER_TEST);
     if (err) {
+        endwin();
+
         typing_test_destroy(&tt);
         word_store_destroy(&ws);
 
-        endwin();
-
         err_print(err, stderr);
         err_destroy(&err);
+
         return EXIT_FAILURE;
     }
 
