@@ -68,28 +68,55 @@ void typing_test_start(Err **err, TypingTest *typing_test) {
     }
 
     curs_set(1);
-    wmove(typing_test->window, 0, typing_test->lines[0].start_pos);
     wrefresh(typing_test->window);
 
-    /* int line_i = 0; */
-    int word_i = 0;
-    /* int words_in_line = 0; */
-    char *next_char = typing_test->words[word_i];
-    char candidate_char;
+    int current_line_i = 0;
+    Line *current_line = &typing_test->lines[current_line_i];
+    wmove(typing_test->window, current_line_i, current_line->start_pos);
 
-    while (true) {
-        int input = wgetch(typing_test->window);
+    char *current_char = current_line->str;
+    int input = -1;
+    char candidate_char;
+    bool is_typing_err = false;
+
+    while (current_line && current_char) {
+        input = wgetch(typing_test->window);
         if (input < 0 || input > CHAR_MAX) {
             continue;
         } else {
             candidate_char = (char)input;
         }
 
-        if (candidate_char == *next_char) {
+        if (is_typing_err) {
+            waddch(typing_test->window, (unsigned)*current_char);
+            continue;
+        }
+
+        // Handle correct input
+        if (candidate_char == *current_char) {
             wattron(typing_test->window, COLOR_PAIR(1));
             waddch(typing_test->window, (unsigned)candidate_char);
             wattroff(typing_test->window, COLOR_PAIR(1));
-            next_char++;
+            current_char++;
+
+            // Handle end of line
+            if (!*current_char) {
+                if (current_line_i < typing_test->lines_count - 1) {
+                    current_line = &typing_test->lines[++current_line_i];
+                    current_char = current_line->str;
+                    wmove(typing_test->window, current_line_i,
+                          current_line->start_pos);
+                } else {
+                    break;
+                }
+            }
+        }
+        // Handle incorrect input
+        else {
+            wattron(typing_test->window, COLOR_PAIR(0));
+            waddch(typing_test->window, (unsigned)candidate_char);
+            wattroff(typing_test->window, COLOR_PAIR(0));
+            is_typing_err = true;
         }
         wrefresh(typing_test->window);
     }
@@ -199,8 +226,12 @@ int typing_test_calc_lines(Err **err, TypingTest *tt) {
     // Calculate start positions
     for (int i = 0; i < line_count; i++) {
         Line *l = &lines[i];
-        size_t start_pos =
-            (win_max_x - (size_t)MAX_N(0, l->str_len)) / (size_t)2;
+
+        if (l->str_len < 0) {
+            *err = ERR_MAKE("Line string length must not be lower than 0");
+        }
+
+        size_t start_pos = (win_max_x - (size_t)l->str_len) / (size_t)2;
         if (start_pos > INT_MAX) {
             *err =
                 ERR_MAKE("Unable to convert start pos (%ul) to int", start_pos);
