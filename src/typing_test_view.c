@@ -104,7 +104,6 @@ void typing_test_view_init(Err **err, TypingTestView **tgt, size_t width,
         TypingTestWord *w = &v->words[i];
         w->word = raw_word;
         w->len = strlen(w->word);
-        w->buff_i = running_buff_i;
         w->typed_len = 0;
 
         // Calculate space required. Words after the first are prefixed with a
@@ -157,23 +156,25 @@ void typing_test_view_init(Err **err, TypingTestView **tgt, size_t width,
         if (i) {
             v->concatenated_words[running_buff_i++] = ' ';
         }
+        w->buff_i = running_buff_i;
 
         size_t remaining_space = concatenated_words_buff_len - running_buff_i;
         size_t copied = string_copy(&v->concatenated_words[running_buff_i],
                                     remaining_space, raw_word, w->len);
         running_buff_i += copied;
-        v->concatenated_words_len = running_buff_i;
 
         // Update length variables
         current_line->len += space_required;
         w->line_number = v->lines_count;
     }
+
+    v->concatenated_words_len = running_buff_i;
     // finalise the last line
     if (current_line->len) {
         current_line->start_pos =
             (v->view_width - current_line->len) / (size_t)2;
         v->lines_count++;
-        current_line->end_i = running_buff_i;
+        current_line->end_i = v->concatenated_words_len - 1;
     }
 
     // Initialise test buffer
@@ -194,16 +195,21 @@ void typing_test_view_render(Err **err, TypingTestView *v,
 
     // Render 3 lines around the current word
     TypingTestWord current_word = v->words[current_word_i];
-    size_t first_line_i = current_word.line_number > 0
-                              ? current_word.line_number - 1
-                              : current_word.line_number;
-    size_t last_line_i = first_line_i + 2;
+
+    size_t first_line_i = current_word.line_number;
+    if (first_line_i > 0) {
+        first_line_i--;
+    }
+    if (first_line_i + 2 > v->lines_count - 1) {
+        first_line_i--;
+    }
+    size_t last_line_i = MIN_N(first_line_i + 2, v->lines_count - 1);
 
     if (last_line_i > INT_MAX) {
         *err = ERR_MAKE("Line number cannot exceed int max");
         return;
     }
-
+    wclear(v->win);
     for (size_t line_i = first_line_i; line_i <= last_line_i; line_i++) {
         TypingTestViewLine l = v->line_data[line_i];
         if (l.start_pos > INT_MAX) {
@@ -216,6 +222,10 @@ void typing_test_view_render(Err **err, TypingTestView *v,
             waddch(v->win, (unsigned)*gap_buff_getch(v->test_buff, char_i));
         }
     }
+
+    TypingTestViewLine l = v->line_data[current_word.line_number];
+    wmove(v->win, (int)(current_word.line_number - first_line_i),
+          (int)(current_word.buff_i - l.start_i + l.start_pos));
     wrefresh(v->win);
 }
 

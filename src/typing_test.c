@@ -46,9 +46,12 @@ void typing_test_start(Err **err, TypingTest *tt) {
         *err = ERR_MAKE("Typing test is null");
         return;
     }
+
     size_t current_word_i = 0;
-    typing_test_view_render(err, tt->view, current_word_i);
-    getch();
+    while (current_word_i < tt->words_count) {
+        typing_test_view_render(err, tt->view, current_word_i++);
+        getch();
+    }
 }
 
 void typing_test_destroy(TypingTest **typing_test) {
