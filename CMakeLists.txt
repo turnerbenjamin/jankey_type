@@ -19,7 +19,9 @@ pkg_check_modules(NCURSES REQUIRED ncurses)
 set(SOURCES 
     "src/main.c"
     "src/typing_test.c"
+    "src/typing_test_view.c"
     "src/word_store.c"
+    "src/gap_buffer.c"
     "src/err.c"
     "src/helpers.c"
 )
@@ -27,7 +29,9 @@ set(SOURCES
 set(HEADERS
     "src/constants.h"
     "src/typing_test.h"
+    "src/typing_test_view.h"
     "src/word_store.h"
+    "src/gap_buffer.h"
     "src/helpers.h"
     "src/err.h"
 )
@@ -53,7 +57,6 @@ target_compile_options(out PRIVATE
     -Wstack-protector          # Stack protection
     -Wtrampolines              # Trampolines usage
     -Walloca                   # Alloca usage
-    -Wvla                      # Variable length arrays
     -Warray-bounds=2           # Array bounds checking
     -Wimplicit-fallthrough=3   # Switch fallthrough
     -Wtraditional-conversion   # Traditional C conversions

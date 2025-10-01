@@ -12,7 +12,8 @@ typedef struct WordStore {
 } WordStore;
 
 void word_store_init(Err **err, WordStore **ws, const char *dict_path);
-void word_store_cpy_rand(WordStore *ws, char **dest, int dest_len);
+void word_store_randn(Err **err, WordStore *ws, size_t buff_size,
+                      const char *buff[buff_size]);
 void word_store_destroy(WordStore **ws);
 
 #endif

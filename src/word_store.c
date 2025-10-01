@@ -77,16 +77,15 @@ void word_store_init(Err **err, WordStore **ws, const char *dict_path) {
     return;
 }
 
-void word_store_cpy_rand(WordStore *ws, char **dest, int dest_len) {
-    if (dest_len < 0) {
+void word_store_randn(Err **err, WordStore *ws, size_t buff_size,
+                      const char *buff[buff_size]) {
+    if (*err) {
         return;
     }
-    size_t dest_len_s = (size_t)dest_len;
-
-    size_t rand_i;
-    for (size_t i = 0; i < dest_len_s; i++) {
+    size_t rand_i = 0;
+    for (size_t i = 0; i < buff_size; i++) {
         rand_i = (size_t)rand() % (ws->word_count + 1);
-        dest[i] = ws->words[rand_i];
+        buff[i] = ws->words[rand_i];
     }
 }
 

@@ -85,7 +85,7 @@ void init_ncurses(Err **err) {
         *err = ERR_MAKE("Unable to initialise pair");
         return;
     }
-    if (init_extended_pair(2, COLOR_RED, COLOR_GREEN) == ERR) {
+    if (init_extended_pair(2, COLOR_RED, COLOR_BLACK) == ERR) {
         *err = ERR_MAKE("Unable to initialise pair");
         return;
     }

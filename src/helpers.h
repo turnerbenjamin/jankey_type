@@ -5,6 +5,7 @@
 
 #define MAX_N(a, b) ((a) > (b) ? (a) : (b))
 #define MIN_N(a, b) ((a) > (b) ? (b) : (a))
+#define ZALLOC(size)(calloc((size_t)1, (size))
 
 size_t string_copy(char *tgt, size_t tgt_size, const char *src,
                    size_t src_size);

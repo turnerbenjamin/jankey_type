@@ -11,6 +11,5 @@ size_t string_copy(char *tgt, size_t tgt_size, const char *src,
         }
         tgt[i] = src[i];
     }
-    tgt[i - 1] = '\0';
     return i;
 }
