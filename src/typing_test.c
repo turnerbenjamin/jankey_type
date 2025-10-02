@@ -1,7 +1,5 @@
 #include "typing_test.h"
-#include "constants.h"
 #include "err.h"
-#include "helpers.h"
 #include "typing_test_view.h"
 #include "word_store.h"
 #include <limits.h>
@@ -13,6 +11,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+struct TypingTest {
+    TypingTestView *view;
+    char *test_str;
+    uint64_t test_str_len;
+};
+
 void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
                       size_t word_count) {
 
@@ -23,15 +27,12 @@ void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
         return;
     }
 
-    t->words_count = word_count;
-    size_t view_width = MIN_N((size_t)COLS, MAX_CHARS_PER_LINE);
-
-    word_store_randn(err, ws, t->words_count, t->words);
+    t->test_str_len = word_store_rands(err, ws, word_count, &t->test_str);
     if (*err) {
         return;
     }
 
-    typing_test_view_init(err, &t->view, view_width, t->words, t->words_count);
+    typing_test_view_init(err, &t->view, t->test_str, t->test_str_len);
     if (*err) {
         typing_test_destroy(&t);
         return;
@@ -47,10 +48,14 @@ void typing_test_start(Err **err, TypingTest *tt) {
         return;
     }
 
-    size_t current_word_i = 0;
-    while (current_word_i < tt->words_count) {
-        typing_test_view_render(err, tt->view, current_word_i++);
-        getch();
+    while (true) {
+        typing_test_view_render(err, tt->view);
+        int c = getch();
+        if (c == KEY_BACKSPACE) {
+            typing_test_delch(tt->view);
+        } else {
+            typing_test_addch(tt->view);
+        }
     }
 }
 

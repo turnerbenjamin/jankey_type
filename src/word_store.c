@@ -1,5 +1,7 @@
 #include "word_store.h"
 #include "err.h"
+#include "helpers.h"
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,6 +89,52 @@ void word_store_randn(Err **err, WordStore *ws, size_t buff_size,
         rand_i = (size_t)rand() % (ws->word_count + 1);
         buff[i] = ws->words[rand_i];
     }
+}
+
+size_t word_store_rands(Err **err, WordStore *ws, size_t word_count,
+                        char **tgt) {
+    if (*err) {
+        return 0;
+    }
+
+    size_t buff_cap = (size_t)8 * word_count;
+    size_t buff_len = 0;
+    char *buff = calloc(buff_cap, sizeof(*buff));
+    if (!buff) {
+        *err = ERR_MAKE("Unable to allocate memory for buffer");
+        return 0;
+    }
+
+    size_t rand_i = 0;
+    for (size_t i = 0; i < word_count; i++) {
+        rand_i = (size_t)rand() % (ws->word_count + 1);
+        char *w = ws->words[rand_i];
+
+        size_t word_len = strlen(w);
+        size_t space_needed = i ? word_len + 1 : word_len;
+
+        if (buff_len + space_needed >= buff_cap) {
+            buff_cap += 256;
+            char *t = realloc(buff, buff_cap * sizeof(*t));
+            if (!t) {
+                free(buff);
+                buff = NULL;
+                *err = ERR_MAKE("Unable to expand buffer");
+                return 0;
+            }
+            buff = t;
+        }
+
+        if (i) {
+            buff[buff_len++] = ' ';
+        }
+
+        string_copy(&buff[buff_len], word_len, w, word_len);
+        buff_len += word_len;
+    }
+
+    *tgt = buff;
+    return buff_len;
 }
 
 void word_store_destroy(WordStore **word_store) {

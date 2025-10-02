@@ -19,7 +19,7 @@ void gap_buff_init(Err **err, GapBuff **gap_buff, const char *init_buff,
                    size_t init_buff_len) {
     // Allocate memory for gap buffer
     size_t buff_size = (MAX_GAP_SIZE + init_buff_len) * sizeof(char);
-    GapBuff *gb = ZALLOC(sizeof(*gb) + buff_size));
+    GapBuff *gb = ZALLOC(sizeof(*gb) + buff_size);
     if (!gb) {
         *err = ERR_MAKE("Unable to allocate memory for gap_buff");
         return;
@@ -49,6 +49,10 @@ void gap_buff_mvcursor(Err **err, GapBuff *gb, size_t i) {
     gb->cursor_pos = i;
 }
 
+const char *gap_buff_nextch(GapBuff *gb) {
+    return gap_buff_getch(gb, gb->cursor_pos++);
+}
+
 const char *gap_buff_getch(GapBuff *gb, size_t i) {
     size_t gap_len = (gb->gap_r - gb->gap_l) + 1;
     size_t str_len = gb->buff_size - gap_len;
@@ -58,7 +62,6 @@ const char *gap_buff_getch(GapBuff *gb, size_t i) {
     }
 
     size_t char_i = i < gb->gap_l ? i : i + (gap_len - 1);
-    gb->cursor_pos++;
     return &gb->buff[char_i];
 }
 
