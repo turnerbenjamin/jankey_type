@@ -11,9 +11,9 @@ void typing_test_view_init(Err **err, TypingTestView **view_ptr,
 
 const char *typing_test_view_getch(TypingTestView *view);
 
-size_t typing_test_addch(TypingTestView *view);
+size_t typing_test_view_addch(TypingTestView *view);
 
-size_t typing_test_delch(TypingTestView *view);
+size_t typing_test_view_delch(TypingTestView *view);
 
 void typing_test_view_render(Err **err, TypingTestView *view);
 

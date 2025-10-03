@@ -26,7 +26,6 @@ struct TypingTestView {
     size_t cursor_line_i;
     Line lines[];
 };
-
 #define WIN_HEIGHT 3
 #define MIN_WIN_WIDTH 24
 
@@ -95,7 +94,7 @@ const char *typing_test_view_getch(TypingTestView *v) {
     return gap_buff_getch(v->buff, v->cursor_i);
 }
 
-size_t typing_test_addch(TypingTestView *v) {
+size_t typing_test_view_addch(TypingTestView *v) {
     if (v->cursor_i >= v->buff_len - 1) {
         return v->cursor_i;
     }
@@ -106,7 +105,7 @@ size_t typing_test_addch(TypingTestView *v) {
     return v->cursor_i;
 }
 
-size_t typing_test_delch(TypingTestView *v) { return v->cursor_i; }
+size_t typing_test_view_delch(TypingTestView *v) { return v->cursor_i; }
 
 void typing_test_view_render(Err **err, TypingTestView *v) {
 
@@ -231,7 +230,7 @@ void ttv_initlines(Err **err, TypingTestView **typing_test_view,
         current_word_len++;
 
         // Throw error if a word exceeds the width of the line
-        if (current_word_len > line_width) {
+        if (current_word_len + 1 > line_width) {
             *err = ERR_MAKE("A word has been found that exceeds the width of "
                             "the window: %s",
                             &test_str[start_of_current_word_i]);

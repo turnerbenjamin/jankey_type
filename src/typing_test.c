@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 struct TypingTest {
     TypingTestView *view;
@@ -48,15 +49,27 @@ void typing_test_start(Err **err, TypingTest *tt) {
         return;
     }
 
+    long t1 = clock();
+    size_t cursor_p = 0;
+    size_t next_cursor_p = 0;
+    size_t chars = 0;
     while (true) {
-        typing_test_view_render(err, tt->view);
-        int c = getch();
-        if (c == KEY_BACKSPACE) {
-            typing_test_delch(tt->view);
-        } else {
-            typing_test_addch(tt->view);
+        next_cursor_p = typing_test_view_addch(tt->view);
+        if (next_cursor_p == cursor_p) {
+            break;
         }
+        typing_test_view_render(err, tt->view);
+        cursor_p = next_cursor_p;
+        chars++;
     }
+    long t = clock() - t1;
+
+    double words = ((double)chars / (double)5);
+    double words_per_tick = words / (double)t;
+    double wpm = words_per_tick * (double)CLOCKS_PER_SEC * (double)60;
+
+    *err = ERR_MAKE("Ticks: %ld, Chars: %ul, WPM: %.2lf", t, chars, wpm);
+    return;
 }
 
 void typing_test_destroy(TypingTest **typing_test) {
