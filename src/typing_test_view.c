@@ -31,6 +31,7 @@ struct TypingTestView {
 
 void ttv_initlines(Err **err, TypingTestView **v, size_t line_width,
                    const char *test_str, size_t str_len);
+void ttv_update_lines_post_insert(TypingTestView *v);
 
 void typing_test_view_init(Err **err, TypingTestView **tgt,
                            const char *test_str, size_t str_len) {
@@ -79,6 +80,7 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
         return;
     }
     v->buff_len = str_len;
+    gap_buff_mvcursor(err, v->buff, (size_t)0);
 
     // Initialise line data for the view
     ttv_initlines(err, &v, v->width, test_str, str_len);
@@ -90,14 +92,19 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
     *tgt = v;
 }
 
-const char *typing_test_view_getch(TypingTestView *v) {
-    return gap_buff_getch(v->buff, v->cursor_i);
-}
-
-size_t typing_test_view_addch(TypingTestView *v) {
+size_t typing_test_view_addch(TypingTestView *v, char *c, TTV_TYPEMODE m) {
     if (v->cursor_i >= v->buff_len - 1) {
         return v->cursor_i;
     }
+
+    if (m == TTV_TYPEMODE_OVERTYPE) {
+        if (gap_buff_insch(v->buff, c)) {
+            ttv_update_lines_post_insert(v);
+        };
+    } else {
+        gap_buff_stch(v->buff, c);
+    }
+
     v->cursor_i++;
     if (v->lines[v->cursor_line_i].end_i < v->cursor_i) {
         v->cursor_line_i++;
@@ -172,7 +179,10 @@ void typing_test_view_render(Err **err, TypingTestView *v) {
         wclrtoeol(win);
     }
 
-    // Sync win and view cursors
+    // Sync buff cursor with view cursor
+    gap_buff_mvcursor(err, buff, v->cursor_i);
+
+    // Sync window cursor with view cursor
     Line focussed_line = v->lines[v->cursor_line_i];
     size_t line_len = focussed_line.end_i - focussed_line.start_i + 1;
     size_t center_offset = (width > line_len) ? (width - line_len) / 2 : 0;
@@ -269,4 +279,9 @@ void ttv_initlines(Err **err, TypingTestView **typing_test_view,
         v->lines_len++;
     }
     *typing_test_view = v;
+}
+
+void ttv_update_lines_post_insert(TypingTestView *v) {
+    for (size_t line_i = v->cursor_line_i; line_i < v->lines_len; line_i++) {
+    }
 }

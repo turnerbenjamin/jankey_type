@@ -1,47 +1,51 @@
 #include "gap_buffer.h"
 #include "err.h"
 #include "helpers.h"
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdlib.h>
-
-#define MAX_GAP_SIZE (size_t)64
-#define MIN_GAP_SIZE (size_t)8
 
 typedef struct GapBuff {
     size_t gap_l;
     size_t gap_r;
     size_t cursor_pos;
-    size_t buff_size;
+    size_t buff_len;
     char buff[];
 } GapBuff;
+
+size_t gb_getbuffi(GapBuff *gb, size_t i);
+void gb_mvgapaftercursor(GapBuff *gb);
 
 void gap_buff_init(Err **err, GapBuff **gap_buff, const char *init_buff,
                    size_t init_buff_len) {
     // Allocate memory for gap buffer
-    size_t buff_size = (MAX_GAP_SIZE + init_buff_len) * sizeof(char);
+    size_t gap_size = 4;
+    size_t buff_size = (gap_size + init_buff_len) * sizeof(char);
     GapBuff *gb = ZALLOC(sizeof(*gb) + buff_size);
     if (!gb) {
         *err = ERR_MAKE("Unable to allocate memory for gap_buff");
         return;
     }
-    gb->buff_size = buff_size;
+    gb->buff_len = buff_size;
 
-    // Initialise cursor and gap at start of buffer
-    gb->cursor_pos = 0;
-    gb->gap_l = gb->cursor_pos;
-    gb->gap_r = MAX_GAP_SIZE - 1;
+    // Init cursor position and gap at the end of the buffer
+    gb->cursor_pos = init_buff_len - 1;
+    gb->gap_l = init_buff_len;
+    gb->gap_r = buff_size - 1;
 
     // Copy init data to buff
-    for (size_t si = 0, ti = gb->gap_r; si < init_buff_len && ti < buff_size;
-         si++, ti++) {
-        gb->buff[ti] = init_buff[si];
+    for (size_t i = 0; i < init_buff_len && i < buff_size; i++) {
+        gb->buff[i] = init_buff[i];
     }
 
     *gap_buff = gb;
 }
 
+// Move cursor position in text
 void gap_buff_mvcursor(Err **err, GapBuff *gb, size_t i) {
-    size_t str_len = gb->buff_size - gb->gap_r + gb->gap_l;
+    size_t gap_len = gb->gap_r - gb->gap_l + 1;
+    size_t str_len = gb->buff_len - gap_len;
+
     if (i >= str_len - 1) {
         *err = ERR_MAKE("index out of range");
         return;
@@ -49,20 +53,33 @@ void gap_buff_mvcursor(Err **err, GapBuff *gb, size_t i) {
     gb->cursor_pos = i;
 }
 
+// Overtype char
+bool gap_buff_stch(GapBuff *gb, char *c) {
+    size_t logical_cursor_pos = gb_getbuffi(gb, gb->cursor_pos);
+    gb->buff[logical_cursor_pos] = *c;
+
+    return true;
+}
+
+// Insert char
+bool gap_buff_insch(GapBuff *gb, char *c) {
+    size_t gap_len = gb->gap_r - gb->gap_l + 1;
+    if (!gap_len) {
+        return false;
+    }
+    gb_mvgapaftercursor(gb);
+    gb->buff[gb->gap_l++] = *c;
+    return true;
+}
+
 const char *gap_buff_nextch(GapBuff *gb) {
-    return gap_buff_getch(gb, gb->cursor_pos++);
+    size_t buff_i = gb_getbuffi(gb, gb->cursor_pos++);
+    return &gb->buff[buff_i];
 }
 
 const char *gap_buff_getch(GapBuff *gb, size_t i) {
-    size_t gap_len = (gb->gap_r - gb->gap_l) + 1;
-    size_t str_len = gb->buff_size - gap_len;
-
-    if (i >= str_len) {
-        return NULL;
-    }
-
-    size_t char_i = i < gb->gap_l ? i : i + (gap_len - 1);
-    return &gb->buff[char_i];
+    size_t buff_i = gb_getbuffi(gb, i);
+    return &gb->buff[buff_i];
 }
 
 void gap_buff_destroy(GapBuff **gap_buff) {
@@ -73,3 +90,40 @@ void gap_buff_destroy(GapBuff **gap_buff) {
     free(*gap_buff);
     *gap_buff = NULL;
 }
+
+size_t gb_getbuffi(GapBuff *gb, size_t i) {
+    size_t gap_len = gb->gap_r - gb->gap_l + 1;
+    if (i < gb->gap_l) {
+        return i;
+    } else {
+        return i + gap_len;
+    }
+}
+
+void gb_mvgapaftercursor(GapBuff *gb) {
+    size_t cursor_pos = gb->cursor_pos;
+    size_t gap_l_tgt = cursor_pos + 1;
+
+    // Return if already synced
+    if (gb->gap_l == gap_l_tgt) {
+        return;
+    }
+
+    bool mv_left = gap_l_tgt < gb->gap_l;
+
+    // Move cursor in relevant direction
+    while (gb->gap_l != gap_l_tgt) {
+        if (mv_left) {
+            gb->gap_l--;
+            gb->buff[gb->gap_r] = gb->buff[gb->gap_l];
+            gb->buff[gb->gap_l] = '^';
+            gb->gap_r--;
+        } else {
+            gb->gap_l++;
+            gb->buff[gb->gap_l] = gb->buff[gb->gap_r];
+            gb->buff[gb->gap_r] = '^';
+            gb->gap_r++;
+        }
+    }
+}
+

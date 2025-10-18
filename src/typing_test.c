@@ -18,6 +18,8 @@ struct TypingTest {
     uint64_t test_str_len;
 };
 
+// void tt_runbench(Err **err, TypingTest *tt);
+
 void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
                       size_t word_count) {
 
@@ -49,6 +51,27 @@ void typing_test_start(Err **err, TypingTest *tt) {
         return;
     }
 
+    typing_test_view_render(err, tt->view);
+    char c;
+    size_t i = 0;
+    while (true) {
+        int ui = getch();
+        if (ui < 0) {
+            continue;
+        }
+        c = (char)ui;
+        size_t new_i =
+            typing_test_view_addch(tt->view, &c, TTV_TYPEMODE_OVERTYPE);
+        if (new_i == i) {
+            break;
+        }
+        i++;
+        typing_test_view_render(err, tt->view);
+    }
+}
+
+/*
+void tt_runbench(Err **err, TypingTest *tt) {
     long t1 = clock();
     size_t cursor_p = 0;
     size_t next_cursor_p = 0;
@@ -71,6 +94,7 @@ void typing_test_start(Err **err, TypingTest *tt) {
     *err = ERR_MAKE("Ticks: %ld, Chars: %ul, WPM: %.2lf", t, chars, wpm);
     return;
 }
+*/
 
 void typing_test_destroy(TypingTest **typing_test) {
     if (!typing_test) {

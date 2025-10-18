@@ -20,7 +20,7 @@ void word_store_init(Err **err, WordStore **ws, const char *dict_path) {
     char **words = calloc(buff_len, sizeof(*words));
     if (!words) {
         fclose(s);
-        *err = ERR_MAKE("Unable to allocate memory for words list");
+        *err = ERR_MAKE("Unable to allrcate memory for words list");
         return;
     }
 
