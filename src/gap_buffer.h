@@ -14,6 +14,8 @@ const char *gap_buff_getch(GapBuff *gb, size_t i);
 bool gap_buff_stch(GapBuff *buffer, char *c);
 bool gap_buff_insch(GapBuff *buffer, char *c);
 
+size_t gap_buff_getlen(GapBuff *buffer);
+
 void gap_buff_destroy(GapBuff **gap_buff);
 
 #endif

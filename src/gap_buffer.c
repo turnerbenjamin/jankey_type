@@ -19,7 +19,7 @@ void gb_mvgapaftercursor(GapBuff *gb);
 void gap_buff_init(Err **err, GapBuff **gap_buff, const char *init_buff,
                    size_t init_buff_len) {
     // Allocate memory for gap buffer
-    size_t gap_size = 4;
+    size_t gap_size = 16;
     size_t buff_size = (gap_size + init_buff_len) * sizeof(char);
     GapBuff *gb = ZALLOC(sizeof(*gb) + buff_size);
     if (!gb) {
@@ -41,13 +41,16 @@ void gap_buff_init(Err **err, GapBuff **gap_buff, const char *init_buff,
     *gap_buff = gb;
 }
 
+size_t gap_buff_getlen(GapBuff *gb) {
+    size_t gap_len = gb->gap_r - gb->gap_l + 1;
+    return gb->buff_len - gap_len;
+}
+
 // Move cursor position in text
 void gap_buff_mvcursor(Err **err, GapBuff *gb, size_t i) {
-    size_t gap_len = gb->gap_r - gb->gap_l + 1;
-    size_t str_len = gb->buff_len - gap_len;
-
+    size_t str_len = gap_buff_getlen(gb);
     if (i >= str_len - 1) {
-        *err = ERR_MAKE("index out of range");
+        *err = ERR_MAKE("index:%lu out of range:0-%lu", i, str_len - 1);
         return;
     }
     gb->cursor_pos = i;
@@ -126,4 +129,3 @@ void gb_mvgapaftercursor(GapBuff *gb) {
         }
     }
 }
-

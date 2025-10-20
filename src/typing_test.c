@@ -60,8 +60,10 @@ void typing_test_start(Err **err, TypingTest *tt) {
             continue;
         }
         c = (char)ui;
-        size_t new_i =
-            typing_test_view_addch(tt->view, &c, TTV_TYPEMODE_OVERTYPE);
+
+        TTV_TYPEMODE m = c == 'x' ? TTV_TYPEMODE_INSERT : TTV_TYPEMODE_OVERTYPE;
+
+        size_t new_i = typing_test_view_addch(tt->view, &c, m);
         if (new_i == i) {
             break;
         }

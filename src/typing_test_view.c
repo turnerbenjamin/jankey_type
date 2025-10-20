@@ -3,6 +3,7 @@
 #include "err.h"
 #include "gap_buffer.h"
 #include "helpers.h"
+#include <ctype.h>
 #include <limits.h>
 #include <ncurses.h>
 #include <stdint.h>
@@ -18,7 +19,6 @@ struct TypingTestView {
     WINDOW *win;
     size_t width;
     GapBuff *buff;
-    size_t buff_len;
     size_t lines_len;
     size_t lines_cap;
     size_t lines_init_time_spare_cap;
@@ -29,9 +29,7 @@ struct TypingTestView {
 #define WIN_HEIGHT 3
 #define MIN_WIN_WIDTH 24
 
-void ttv_initlines(Err **err, TypingTestView **v, size_t line_width,
-                   const char *test_str, size_t str_len);
-void ttv_update_lines_post_insert(TypingTestView *v);
+void ttv_calculate_lines(Err **err, TypingTestView *v);
 
 void typing_test_view_init(Err **err, TypingTestView **tgt,
                            const char *test_str, size_t str_len) {
@@ -79,11 +77,10 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
         typing_test_view_destroy(&v);
         return;
     }
-    v->buff_len = str_len;
     gap_buff_mvcursor(err, v->buff, (size_t)0);
 
     // Initialise line data for the view
-    ttv_initlines(err, &v, v->width, test_str, str_len);
+    ttv_calculate_lines(err, v);
     if (*err) {
         typing_test_view_destroy(&v);
         return;
@@ -93,28 +90,25 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
 }
 
 size_t typing_test_view_addch(TypingTestView *v, char *c, TTV_TYPEMODE m) {
-    if (v->cursor_i >= v->buff_len - 1) {
+    size_t buff_len = gap_buff_getlen(v->buff);
+    if (v->cursor_i >= buff_len - 1) {
         return v->cursor_i;
     }
 
     if (m == TTV_TYPEMODE_OVERTYPE) {
-        if (gap_buff_insch(v->buff, c)) {
-            ttv_update_lines_post_insert(v);
-        };
-    } else {
         gap_buff_stch(v->buff, c);
+    } else {
+        gap_buff_insch(v->buff, c);
     }
 
-    v->cursor_i++;
-    if (v->lines[v->cursor_line_i].end_i < v->cursor_i) {
-        v->cursor_line_i++;
-    }
-    return v->cursor_i;
+    return ++v->cursor_i;
 }
 
 size_t typing_test_view_delch(TypingTestView *v) { return v->cursor_i; }
 
 void typing_test_view_render(Err **err, TypingTestView *v) {
+
+    ttv_calculate_lines(err, v);
 
     // Cache values accessed frequently in the loop
     WINDOW *win = v->win;
@@ -162,12 +156,9 @@ void typing_test_view_render(Err **err, TypingTestView *v) {
         }
 
         // Render line from buffer
-        size_t chars_in_line = current_line.end_i - current_line.start_i + 1;
-        for (size_t char_count = 0; char_count < chars_in_line; char_count++) {
+        for (size_t char_count = 0; char_count < line_len; char_count++) {
             const char *ch_ptr = gap_buff_nextch(buff);
-            if (!ch_ptr)
-                break;
-            waddch(win, (unsigned char)*ch_ptr);
+            waddch(win, (unsigned char)(*ch_ptr == ' ' ? '_' : *ch_ptr));
         }
         wclrtoeol(win);
     }
@@ -210,78 +201,70 @@ void typing_test_view_destroy(TypingTestView **tgt) {
     *tgt = NULL;
 }
 
-void ttv_initlines(Err **err, TypingTestView **typing_test_view,
-                   size_t line_width, const char *test_str, size_t str_len) {
-    TypingTestView *v = *typing_test_view;
-    v->lines_len = 0;
-    Line *current_line = &v->lines[v->lines_len];
+void ttv_calculate_lines(Err **err, TypingTestView *v) {
+    size_t next_char_i = 0;
+    size_t curr_line_i = 0;
 
-    size_t current_word_len = 0;
-    size_t start_of_current_word_i = 0;
-    size_t current_line_len;
-
-    char c;
-    for (size_t i = 0; i < str_len; i++) {
-        c = test_str[i];
-
-        // Handle end of word
-        if (c == ' ') {
-            if (current_word_len) {
-                current_line->end_i = i;
+    v->cursor_line_i = 0;
+    Line *curr_line;
+    size_t buff_len = gap_buff_getlen(v->buff);
+    while (next_char_i < buff_len) {
+        // Check sufficient space for line
+        if (curr_line_i >= v->lines_cap) {
+            v->lines_cap += v->lines_init_time_spare_cap;
+            TypingTestView *t =
+                realloc(v, sizeof(*t) + (v->lines_cap * sizeof(Line)));
+            if (!t) {
+                *err = ERR_MAKE("Unable to expand lines capacity");
+                return;
             }
-            current_word_len = 0;
-            continue;
+            v = t;
         }
 
-        // Increment current word len and set start i for current word
-        if (!current_word_len) {
-            start_of_current_word_i = i;
-        }
-        current_word_len++;
+        curr_line = &v->lines[curr_line_i];
 
-        // Throw error if a word exceeds the width of the line
-        if (current_word_len + 1 > line_width) {
-            *err = ERR_MAKE("A word has been found that exceeds the width of "
-                            "the window: %s",
-                            &test_str[start_of_current_word_i]);
-            *typing_test_view = v;
-            return;
+        // Calculate rough end index
+        size_t line_start_i = next_char_i;
+        size_t line_end_i =
+            MIN_N(next_char_i + MAX_CHARS_PER_LINE - 1, buff_len - 1);
+        next_char_i--;
+        next_char_i = line_end_i + 1;
+
+        // Exit if no chars to add
+        if (line_end_i == line_start_i) {
+            break;
         }
 
-        // If current line cannot fit the current word, increment the
-        // current line and set it's initial start position
-        current_line_len = current_line->end_i - current_line->start_i + 1;
-        if (current_line_len + current_word_len > line_width) {
-            v->lines_len++;
-            // Ensure space to add new line
-            if (v->lines_len >= v->lines_cap - v->lines_init_time_spare_cap) {
-                v->lines_cap += v->lines_init_time_spare_cap;
-                TypingTestView *t =
-                    realloc(v, sizeof(*t) + (v->lines_cap * sizeof(Line)));
-                if (!t) {
-                    *err = ERR_MAKE("Unable to expand lines capacity");
-                    *typing_test_view = v;
-                    return;
+        // Adjust line-end for word-wrapping
+        const char *c;
+        bool non_alpha_char_found = false;
+        while (line_end_i > line_start_i && line_end_i < buff_len - 1) {
+            c = gap_buff_getch(v->buff, line_end_i);
+            bool is_alpha = isalpha(*c);
+            if (is_alpha) {
+                if (non_alpha_char_found) {
+                    line_end_i = line_end_i + 1;
+                    next_char_i = line_end_i + 1;
+                    break;
                 }
-                v = t;
+            } else {
+                non_alpha_char_found = true;
             }
-
-            // Initialise new line
-            current_line = &v->lines[v->lines_len];
-
-            current_line->start_i = start_of_current_word_i;
-            current_line->end_i = current_line->start_i;
+            line_end_i--;
         }
-    }
-    // Complete final line
-    if (current_word_len) {
-        current_line->end_i = str_len - 1;
-        v->lines_len++;
-    }
-    *typing_test_view = v;
-}
 
-void ttv_update_lines_post_insert(TypingTestView *v) {
-    for (size_t line_i = v->cursor_line_i; line_i < v->lines_len; line_i++) {
+        if (line_end_i <= line_start_i) {
+            *err = ERR_MAKE("Word found greater than max line length");
+            break;
+        }
+
+        if (line_start_i <= v->cursor_i && line_end_i >= v->cursor_i) {
+            v->cursor_line_i = curr_line_i;
+        }
+
+        curr_line->start_i = line_start_i;
+        curr_line->end_i = line_end_i;
+        curr_line_i++;
     }
+    v->lines_len = curr_line_i;
 }

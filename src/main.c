@@ -7,13 +7,14 @@
 #include <time.h>
 
 void init_ncurses(Err **err);
+void cleanup_ncurses(void);
 
 int main() {
     Err *err = NULL;
 
     init_ncurses(&err);
     if (err) {
-        endwin();
+        cleanup_ncurses();
         err_print(err, stderr);
         err_destroy(&err);
         return EXIT_FAILURE;
@@ -25,7 +26,7 @@ int main() {
     if (err) {
         word_store_destroy(&ws);
 
-        endwin();
+        cleanup_ncurses();
 
         err_print(err, stderr);
         err_destroy(&err);
@@ -35,10 +36,11 @@ int main() {
     TypingTest *tt;
     typing_test_init(&err, &tt, ws, WORDS_PER_TEST);
     if (err) {
-        endwin();
 
         typing_test_destroy(&tt);
         word_store_destroy(&ws);
+
+        cleanup_ncurses();
 
         err_print(err, stderr);
         err_destroy(&err);
@@ -51,10 +53,11 @@ int main() {
         typing_test_destroy(&tt);
         word_store_destroy(&ws);
 
-        endwin();
+        cleanup_ncurses();
 
         err_print(err, stderr);
         err_destroy(&err);
+
         return EXIT_FAILURE;
     }
 
@@ -63,6 +66,7 @@ int main() {
     err_destroy(&err);
 
     endwin();
+    system("reset");
 
     return EXIT_SUCCESS;
 }
@@ -89,4 +93,11 @@ void init_ncurses(Err **err) {
         *err = ERR_MAKE("Unable to initialise pair");
         return;
     }
+}
+
+void cleanup_ncurses(void) {
+    clear();           // Clear the screen
+    refresh();         // Make sure changes are displayed
+    reset_prog_mode(); // Reset terminal to program mode
+    endwin();          // End ncurses mode
 }

@@ -20,7 +20,7 @@ void word_store_init(Err **err, WordStore **ws, const char *dict_path) {
     char **words = calloc(buff_len, sizeof(*words));
     if (!words) {
         fclose(s);
-        *err = ERR_MAKE("Unable to allrcate memory for words list");
+        *err = ERR_MAKE("Unable to allocate memory for words list");
         return;
     }
 
@@ -108,7 +108,7 @@ size_t word_store_rands(Err **err, WordStore *ws, size_t word_count,
     size_t rand_i = 0;
     for (size_t i = 0; i < word_count; i++) {
         rand_i = (size_t)rand() % (ws->word_count + 1);
-        char *w = ws->words[rand_i];
+        const char *w = ws->words[rand_i];
 
         size_t word_len = strlen(w);
         size_t space_needed = i ? word_len + 1 : word_len;
