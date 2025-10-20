@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 
 typedef struct Line {
     size_t start_i;
@@ -26,8 +27,8 @@ struct TypingTestView {
     size_t cursor_line_i;
     Line lines[];
 };
-#define WIN_HEIGHT 3
-#define MIN_WIN_WIDTH 24
+
+#define WIN_HEIGHT MAX_TEST_WIN_ROWS
 
 void ttv_calculate_lines(Err **err, TypingTestView *v);
 
@@ -90,6 +91,7 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
 }
 
 size_t typing_test_view_addch(TypingTestView *v, char *c, TTV_TYPEMODE m) {
+
     size_t buff_len = gap_buff_getlen(v->buff);
     if (v->cursor_i >= buff_len - 1) {
         return v->cursor_i;
@@ -227,8 +229,6 @@ void ttv_calculate_lines(Err **err, TypingTestView *v) {
         size_t line_start_i = next_char_i;
         size_t line_end_i =
             MIN_N(next_char_i + MAX_CHARS_PER_LINE - 1, buff_len - 1);
-        next_char_i--;
-        next_char_i = line_end_i + 1;
 
         // Exit if no chars to add
         if (line_end_i == line_start_i) {
@@ -238,24 +238,26 @@ void ttv_calculate_lines(Err **err, TypingTestView *v) {
         // Adjust line-end for word-wrapping
         const char *c;
         bool non_alpha_char_found = false;
-        while (line_end_i > line_start_i && line_end_i < buff_len - 1) {
-            c = gap_buff_getch(v->buff, line_end_i);
-            bool is_alpha = isalpha(*c);
-            if (is_alpha) {
-                if (non_alpha_char_found) {
-                    line_end_i = line_end_i + 1;
-                    next_char_i = line_end_i + 1;
-                    break;
+        if (line_end_i != buff_len - 1) {
+            while (line_end_i > line_start_i) {
+                c = gap_buff_getch(v->buff, line_end_i);
+                bool is_alpha = isalpha(*c);
+                if (is_alpha) {
+                    if (non_alpha_char_found) {
+                        line_end_i = line_end_i + 1;
+                        next_char_i = line_end_i + 1;
+                        break;
+                    }
+                } else {
+                    non_alpha_char_found = true;
                 }
-            } else {
-                non_alpha_char_found = true;
+                line_end_i--;
             }
-            line_end_i--;
         }
 
-        if (line_end_i <= line_start_i) {
-            *err = ERR_MAKE("Word found greater than max line length");
-            break;
+        if (!non_alpha_char_found) {
+            line_end_i =
+                MIN_N(next_char_i + MAX_CHARS_PER_LINE - 1, buff_len - 1);
         }
 
         if (line_start_i <= v->cursor_i && line_end_i >= v->cursor_i) {
@@ -265,6 +267,7 @@ void ttv_calculate_lines(Err **err, TypingTestView *v) {
         curr_line->start_i = line_start_i;
         curr_line->end_i = line_end_i;
         curr_line_i++;
+        next_char_i = line_end_i + 1;
     }
     v->lines_len = curr_line_i;
 }

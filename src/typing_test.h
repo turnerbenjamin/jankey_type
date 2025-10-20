@@ -1,4 +1,13 @@
 #ifndef TYPING_TEST_H
+
+#ifndef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 199309L // For clock_gettime and CLOCK_MONOTONIC
+#endif
+
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+
 #define TYPING_TEST_H
 
 #include "err.h"

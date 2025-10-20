@@ -49,7 +49,7 @@ size_t gap_buff_getlen(GapBuff *gb) {
 // Move cursor position in text
 void gap_buff_mvcursor(Err **err, GapBuff *gb, size_t i) {
     size_t str_len = gap_buff_getlen(gb);
-    if (i >= str_len - 1) {
+    if (i > str_len - 1) {
         *err = ERR_MAKE("index:%lu out of range:0-%lu", i, str_len - 1);
         return;
     }

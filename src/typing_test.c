@@ -1,3 +1,4 @@
+
 #include "typing_test.h"
 #include "err.h"
 #include "typing_test_view.h"
@@ -10,7 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 #include <time.h>
+#include <unistd.h>
 
 struct TypingTest {
     TypingTestView *view;
@@ -18,7 +21,7 @@ struct TypingTest {
     uint64_t test_str_len;
 };
 
-// void tt_runbench(Err **err, TypingTest *tt);
+void tt_runbench(Err **err, TypingTest *tt);
 
 void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
                       size_t word_count) {
@@ -51,6 +54,12 @@ void typing_test_start(Err **err, TypingTest *tt) {
         return;
     }
 
+    /*
+    tt_runbench(err, tt);
+    if (*err)
+        return;
+    */
+
     typing_test_view_render(err, tt->view);
     char c;
     size_t i = 0;
@@ -72,31 +81,34 @@ void typing_test_start(Err **err, TypingTest *tt) {
     }
 }
 
-/*
 void tt_runbench(Err **err, TypingTest *tt) {
-    long t1 = clock();
-    size_t cursor_p = 0;
-    size_t next_cursor_p = 0;
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
     size_t chars = 0;
     while (true) {
-        next_cursor_p = typing_test_view_addch(tt->view);
-        if (next_cursor_p == cursor_p) {
+        char c = tt->test_str[chars++];
+        typing_test_view_addch(tt->view, &c, TTV_TYPEMODE_OVERTYPE);
+        if (chars == tt->test_str_len) {
             break;
         }
         typing_test_view_render(err, tt->view);
-        cursor_p = next_cursor_p;
-        chars++;
     }
-    long t = clock() - t1;
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    // Calculate elapsed time in seconds
+    double seconds = (double)(end.tv_sec - start.tv_sec) +
+                     (double)(end.tv_nsec - start.tv_nsec) / 1000000000.0f;
 
     double words = ((double)chars / (double)5);
-    double words_per_tick = words / (double)t;
-    double wpm = words_per_tick * (double)CLOCKS_PER_SEC * (double)60;
 
-    *err = ERR_MAKE("Ticks: %ld, Chars: %ul, WPM: %.2lf", t, chars, wpm);
+    double minutes = seconds / 60.0f;
+    double wpm = words / minutes;
+
+    *err =
+        ERR_MAKE("Chars: %lu, Words: %lf, Seconds: %lf, WPM: %.2lf, BUFF: %lu",
+                 chars, words, seconds, wpm, tt->test_str_len);
     return;
 }
-*/
 
 void typing_test_destroy(TypingTest **typing_test) {
     if (!typing_test) {
