@@ -3,6 +3,7 @@
 #include "typing_test.h"
 #include "word_store.h"
 #include <ncurses.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -65,9 +66,7 @@ int main() {
     word_store_destroy(&ws);
     err_destroy(&err);
 
-    endwin();
-    system("reset");
-
+    cleanup_ncurses();
     return EXIT_SUCCESS;
 }
 
@@ -84,12 +83,19 @@ void init_ncurses(Err **err) {
     refresh();
     cbreak();
     noecho();
+    keypad(stdscr, TRUE);
 
-    if (init_extended_pair(1, COLOR_GREEN, COLOR_BLACK) == ERR) {
+    if (init_extended_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_BLACK) == ERR) {
         *err = ERR_MAKE("Unable to initialise pair");
         return;
     }
-    if (init_extended_pair(2, COLOR_RED, COLOR_BLACK) == ERR) {
+
+    if (init_extended_pair(COLOR_PAIR_GREEN, COLOR_GREEN, COLOR_BLACK) == ERR) {
+        *err = ERR_MAKE("Unable to initialise pair");
+        return;
+    }
+
+    if (init_extended_pair(COLOR_PAIR_RED, COLOR_RED, COLOR_BLACK) == ERR) {
         *err = ERR_MAKE("Unable to initialise pair");
         return;
     }

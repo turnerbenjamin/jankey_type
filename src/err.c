@@ -43,6 +43,8 @@ Err *err_make_va(const char *file, int line, const char *format, va_list args) {
     va_list args_copy;
     va_copy(args_copy, args);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     int msg_len = vsnprintf(NULL, (size_t)0, format, args_copy);
 
@@ -62,6 +64,8 @@ Err *err_make_va(const char *file, int line, const char *format, va_list args) {
     }
     // NOLINTNEXTLINE(clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling)
     vsnprintf(err->msg, (size_t)(msg_len + 1), format, args);
+
+#pragma clang diagnostic pop
     return err;
 }
 

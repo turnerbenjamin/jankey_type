@@ -16,7 +16,8 @@ typedef struct Err {
         (error) = NULL;                                                        \
     }
 
-#define ERR_MAKE(msg, ...) err_make(__FILE__, __LINE__, (msg), ##__VA_ARGS__)
+#define ERR_MAKE(msg, ...)                                                     \
+    err_make(__FILE__, __LINE__, (msg)__VA_OPT__(, ) __VA_ARGS__)
 
 Err *err_make(const char *file, int line, const char *msg, ...);
 void err_print(const Err *err, FILE *fs);

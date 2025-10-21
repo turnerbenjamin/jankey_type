@@ -90,7 +90,11 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
     *tgt = v;
 }
 
-size_t typing_test_view_addch(TypingTestView *v, char *c, TTV_TYPEMODE m) {
+const char *typing_test_view_charat(TypingTestView *v, size_t i) {
+    return gap_buff_getchar(v->buff, i);
+}
+
+size_t typing_test_view_typechar(TypingTestView *v, char *c, TTV_TYPEMODE m) {
 
     size_t buff_len = gap_buff_getlen(v->buff);
     if (v->cursor_i >= buff_len - 1) {
@@ -98,17 +102,30 @@ size_t typing_test_view_addch(TypingTestView *v, char *c, TTV_TYPEMODE m) {
     }
 
     if (m == TTV_TYPEMODE_OVERTYPE) {
-        gap_buff_stch(v->buff, c);
+        gap_buff_replacechar(v->buff, c);
     } else {
-        gap_buff_insch(v->buff, c);
+        gap_buff_insertchar(v->buff, c);
     }
 
     return ++v->cursor_i;
 }
 
-size_t typing_test_view_delch(TypingTestView *v) { return v->cursor_i; }
+size_t typing_test_view_deletechar(TypingTestView *v, char *c) {
+    if (v->cursor_i == 0) {
+        return v->cursor_i;
+    }
 
-void typing_test_view_render(Err **err, TypingTestView *v) {
+    Err *err;
+    v->cursor_i--;
+    gap_buff_mvcursor(&err, v->buff, v->cursor_i);
+
+    if (c) {
+        gap_buff_replacechar(v->buff, c);
+    }
+    return v->cursor_i;
+}
+
+void typing_test_view_render(Err **err, TypingTestView *v, size_t correct_to) {
 
     ttv_calculate_lines(err, v);
 
@@ -119,6 +136,7 @@ void typing_test_view_render(Err **err, TypingTestView *v) {
     size_t line_count = v->lines_len;
     size_t width = v->width;
     size_t current_line_number = v->cursor_line_i;
+    size_t cursor_i = v->cursor_i;
 
     // Determine lines to render based on the index to be centered
     size_t first_line_i;
@@ -136,6 +154,7 @@ void typing_test_view_render(Err **err, TypingTestView *v) {
 
     size_t last_line_i = MIN_N(first_line_i + WIN_HEIGHT - 1, line_count - 1);
 
+    wattron(win, COLOR_PAIR(COLOR_PAIR_GREEN));
     // Render each visible line in the window
     for (size_t line_i = first_line_i; line_i <= last_line_i; line_i++) {
         // store current line and move cursor to start of win row
@@ -159,7 +178,19 @@ void typing_test_view_render(Err **err, TypingTestView *v) {
 
         // Render line from buffer
         for (size_t char_count = 0; char_count < line_len; char_count++) {
-            const char *ch_ptr = gap_buff_nextch(buff);
+            size_t buff_i = char_count + current_line.start_i;
+            const char *ch_ptr = gap_buff_nextchar(buff);
+
+            chtype color_pair = COLOR_PAIR(COLOR_PAIR_WHITE);
+
+            // Set red
+            if (buff_i < correct_to) {
+                color_pair = COLOR_PAIR(COLOR_PAIR_GREEN);
+            } else if (buff_i < cursor_i) {
+                color_pair = COLOR_PAIR(COLOR_PAIR_RED);
+            }
+
+            wattron(win, color_pair);
             waddch(win, (unsigned char)(*ch_ptr == ' ' ? '_' : *ch_ptr));
         }
         wclrtoeol(win);
@@ -240,7 +271,7 @@ void ttv_calculate_lines(Err **err, TypingTestView *v) {
         bool non_alpha_char_found = false;
         if (line_end_i != buff_len - 1) {
             while (line_end_i > line_start_i) {
-                c = gap_buff_getch(v->buff, line_end_i);
+                c = gap_buff_getchar(v->buff, line_end_i);
                 bool is_alpha = isalpha(*c);
                 if (is_alpha) {
                     if (non_alpha_char_found) {

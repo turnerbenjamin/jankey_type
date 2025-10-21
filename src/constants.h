@@ -6,4 +6,8 @@
 #define MAX_TEST_WIN_ROWS 3
 #define MIN_WIN_WIDTH 24
 
+#define COLOR_PAIR_WHITE 3
+#define COLOR_PAIR_GREEN 1
+#define COLOR_PAIR_RED 2
+
 #endif

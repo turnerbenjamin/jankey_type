@@ -5,6 +5,7 @@ project(jankey_type C)
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_C_COMPILER clang)
 
 # Set build type to Debug if not specified
 if(NOT CMAKE_BUILD_TYPE)
@@ -55,11 +56,10 @@ target_compile_options(out PRIVATE
     -Wformat-security          # Format string security
     -Wnull-dereference         # Null pointer dereference
     -Wstack-protector          # Stack protection
-    -Wtrampolines              # Trampolines usage
     -Walloca                   # Alloca usage
-    -Warray-bounds=2           # Array bounds checking
-    -Wimplicit-fallthrough=3   # Switch fallthrough
-    -Wtraditional-conversion   # Traditional C conversions
+    -Warray-bounds             # Array bounds checking
+    -Wimplicit-fallthrough     # Switch fallthrough
+    -Wliteral-conversion       # Traditional C conversions
     -Wstrict-prototypes        # Strict function prototypes
     -Wold-style-definition     # Old style function definitions
     -Wmissing-prototypes       # Missing function prototypes
@@ -68,12 +68,11 @@ target_compile_options(out PRIVATE
     -Wnested-externs           # Nested extern declarations
     -Winline                   # Inline function warnings
     -Wcast-qual                # Cast away const/volatile
-    -Wcast-align=strict        # Cast alignment
+    -Wcast-align               # Cast alignment
     -Wwrite-strings            # String literal to char*
     -Wconversion               # Type conversions
     -Wsign-conversion          # Sign conversions
     -Wfloat-conversion         # Float conversions
-    -Wlogical-op               # Logical operations
     -Waggregate-return         # Aggregate return
     -Wstrict-overflow=5        # Strict overflow checking
     -Wswitch-default           # Switch without default
@@ -83,8 +82,6 @@ target_compile_options(out PRIVATE
     -Wshadow                   # Variable shadowing
     -Wpointer-arith            # Pointer arithmetic
     -Wbad-function-cast        # Bad function casts
-    -Wjump-misses-init         # Jump misses initialization
-    -Wunsuffixed-float-constants # Unsuffixed float constants
 )
 
 # Link libraries

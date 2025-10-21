@@ -14,11 +14,15 @@ typedef enum TTV_TYPEMODE {
 void typing_test_view_init(Err **err, TypingTestView **view_ptr,
                            const char *test_str, size_t test_str_len);
 
-size_t typing_test_view_addch(TypingTestView *view, char *c, TTV_TYPEMODE mode);
+size_t typing_test_view_typechar(TypingTestView *view, char *c,
+                                 TTV_TYPEMODE mode);
 
-size_t typing_test_view_delch(TypingTestView *view);
+size_t typing_test_view_deletechar(TypingTestView *view, char *c);
 
-void typing_test_view_render(Err **err, TypingTestView *view);
+const char *typing_test_view_charat(TypingTestView *view, size_t i);
+
+void typing_test_view_render(Err **err, TypingTestView *view,
+                             size_t correct_to);
 
 void typing_test_view_destroy(TypingTestView **view);
 

@@ -3,6 +3,7 @@
 #include "err.h"
 #include "typing_test_view.h"
 #include "word_store.h"
+#include <ctype.h>
 #include <limits.h>
 #include <ncurses.h>
 #include <stdbool.h>
@@ -60,24 +61,46 @@ void typing_test_start(Err **err, TypingTest *tt) {
         return;
     */
 
-    typing_test_view_render(err, tt->view);
     char c;
     size_t i = 0;
+    size_t last_i = 0;
+    size_t correct_to = 0;
+
+    typing_test_view_render(err, tt->view, correct_to);
     while (true) {
         int ui = getch();
         if (ui < 0) {
             continue;
         }
-        c = (char)ui;
+        if (ui == KEY_BACKSPACE || ui == 127 || ui == 8) {
+            if (i == 0) {
+                continue;
+            }
+            char correct_char = tt->test_str[i - 1];
+            i = typing_test_view_deletechar(tt->view, &correct_char);
+            if (i < correct_to) {
+                correct_to = i;
+            }
+        } else {
+            c = (char)ui;
+            if (!isprint(c)) {
+                continue;
+            }
 
-        TTV_TYPEMODE m = c == 'x' ? TTV_TYPEMODE_INSERT : TTV_TYPEMODE_OVERTYPE;
+            char correct_char = tt->test_str[i];
+            if (correct_char == c && i == correct_to) {
+                correct_to++;
+            }
+            TTV_TYPEMODE m =
+                c == 'X' ? TTV_TYPEMODE_INSERT : TTV_TYPEMODE_OVERTYPE;
 
-        size_t new_i = typing_test_view_addch(tt->view, &c, m);
-        if (new_i == i) {
-            break;
+            i = typing_test_view_typechar(tt->view, &c, m);
+            if (i == last_i) {
+                break;
+            }
         }
-        i++;
-        typing_test_view_render(err, tt->view);
+        typing_test_view_render(err, tt->view, correct_to);
+        last_i = i;
     }
 }
 
@@ -87,11 +110,11 @@ void tt_runbench(Err **err, TypingTest *tt) {
     size_t chars = 0;
     while (true) {
         char c = tt->test_str[chars++];
-        typing_test_view_addch(tt->view, &c, TTV_TYPEMODE_OVERTYPE);
+        typing_test_view_typechar(tt->view, &c, TTV_TYPEMODE_OVERTYPE);
         if (chars == tt->test_str_len) {
             break;
         }
-        typing_test_view_render(err, tt->view);
+        typing_test_view_render(err, tt->view, 0);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
 

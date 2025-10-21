@@ -57,15 +57,14 @@ void gap_buff_mvcursor(Err **err, GapBuff *gb, size_t i) {
 }
 
 // Overtype char
-bool gap_buff_stch(GapBuff *gb, char *c) {
+bool gap_buff_replacechar(GapBuff *gb, char *c) {
     size_t logical_cursor_pos = gb_getbuffi(gb, gb->cursor_pos);
     gb->buff[logical_cursor_pos] = *c;
-
     return true;
 }
 
 // Insert char
-bool gap_buff_insch(GapBuff *gb, char *c) {
+bool gap_buff_insertchar(GapBuff *gb, char *c) {
     size_t gap_len = gb->gap_r - gb->gap_l + 1;
     if (!gap_len) {
         return false;
@@ -75,12 +74,12 @@ bool gap_buff_insch(GapBuff *gb, char *c) {
     return true;
 }
 
-const char *gap_buff_nextch(GapBuff *gb) {
+const char *gap_buff_nextchar(GapBuff *gb) {
     size_t buff_i = gb_getbuffi(gb, gb->cursor_pos++);
     return &gb->buff[buff_i];
 }
 
-const char *gap_buff_getch(GapBuff *gb, size_t i) {
+const char *gap_buff_getchar(GapBuff *gb, size_t i) {
     size_t buff_i = gb_getbuffi(gb, i);
     return &gb->buff[buff_i];
 }
