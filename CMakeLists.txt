@@ -20,6 +20,7 @@ pkg_check_modules(NCURSES REQUIRED ncurses)
 set(SOURCES 
     "src/main.c"
     "src/typing_test.c"
+    "src/typing_test_stats.c"
     "src/typing_test_view.c"
     "src/word_store.c"
     "src/gap_buffer.c"
@@ -30,6 +31,7 @@ set(SOURCES
 set(HEADERS
     "src/constants.h"
     "src/typing_test.h"
+    "src/typing_test_stats.h"
     "src/typing_test_view.h"
     "src/word_store.h"
     "src/gap_buffer.h"

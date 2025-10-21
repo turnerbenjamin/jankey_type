@@ -2,6 +2,7 @@
 #include "typing_test.h"
 #include "constants.h"
 #include "err.h"
+#include "typing_test_stats.h"
 #include "typing_test_view.h"
 #include "word_store.h"
 #include <ctype.h>
@@ -13,17 +14,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <threads.h>
-#include <time.h>
-#include <unistd.h>
 
 struct TypingTest {
     TypingTestView *view;
+    TypingTestStats *stats;
     char *test_str;
     uint64_t test_str_len;
 };
-
-void tt_runbench(Err **err, TypingTest *tt);
 
 void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
                       size_t word_count) {
@@ -32,6 +29,11 @@ void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
     TypingTest *t = calloc((size_t)1, sizeof(TypingTest) + words_buff_size);
     if (!t) {
         *err = ERR_MAKE("Unable to allocate memory for typing test");
+        return;
+    }
+
+    tt_stats_init(err, &t->stats);
+    if (*err) {
         return;
     }
 
@@ -56,16 +58,12 @@ void typing_test_start(Err **err, TypingTest *tt) {
         return;
     }
 
-    /*
-    tt_runbench(err, tt);
-    if (*err)
-        return;
-    */
+    tt_stats_reset(tt->stats);
+    tt_stats_start(tt->stats);
 
     char c;
     size_t i = 0;
     size_t last_i = 0;
-
     typing_test_view_render(err, tt->view);
     while (true) {
         int ui = getch();
@@ -98,36 +96,9 @@ void typing_test_start(Err **err, TypingTest *tt) {
         typing_test_view_render(err, tt->view);
         last_i = i;
     }
-}
-
-void tt_runbench(Err **err, TypingTest *tt) {
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    size_t chars = 0;
-    while (true) {
-        char c = tt->test_str[chars++];
-        typing_test_view_typechar(tt->view, &c, COLOR_PAIR_WHITE,
-                                  TTV_TYPEMODE_OVERTYPE);
-        if (chars == tt->test_str_len) {
-            break;
-        }
-        typing_test_view_render(err, tt->view);
-    }
-    clock_gettime(CLOCK_MONOTONIC, &end);
-
-    // Calculate elapsed time in seconds
-    double seconds = (double)(end.tv_sec - start.tv_sec) +
-                     (double)(end.tv_nsec - start.tv_nsec) / 1000000000.0f;
-
-    double words = ((double)chars / (double)5);
-
-    double minutes = seconds / 60.0f;
-    double wpm = words / minutes;
-
-    *err =
-        ERR_MAKE("Chars: %lu, Words: %lf, Seconds: %lf, WPM: %.2lf, BUFF: %lu",
-                 chars, words, seconds, wpm, tt->test_str_len);
-    return;
+    tt_stats_stop(tt->stats);
+    double wpm = tt_stats_getwpm(tt->stats, tt->test_str_len);
+    *err = ERR_MAKE("WPM: %.2lf", wpm);
 }
 
 void typing_test_destroy(TypingTest **typing_test) {
@@ -143,6 +114,10 @@ void typing_test_destroy(TypingTest **typing_test) {
 
     if (tt->view) {
         typing_test_view_destroy(&tt->view);
+    }
+
+    if (tt->stats) {
+        tt_stats_destoy(&tt->stats);
     }
 
     free(tt);
