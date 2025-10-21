@@ -128,6 +128,7 @@ size_t typing_test_view_deletechar(TypingTestView *v, char *c) {
 
 void typing_test_view_render(Err **err, TypingTestView *v) {
 
+    curs_set(1);
     ttv_calculate_lines(err, v);
 
     // Cache values accessed frequently in the loop
@@ -176,6 +177,7 @@ void typing_test_view_render(Err **err, TypingTestView *v) {
         }
 
         // Render line from buffer
+        //
         for (size_t char_count = 0; char_count < line_len; char_count++) {
             const FormattedChar *ch_ptr = gap_buff_nextchar(buff);
             wattron(win, COLOR_PAIR(ch_ptr->colour_pair));

@@ -26,6 +26,7 @@ set(SOURCES
     "src/gap_buffer.c"
     "src/err.c"
     "src/helpers.c"
+    "src/views/round_end_view.c"
 )
 
 set(HEADERS
@@ -37,6 +38,7 @@ set(HEADERS
     "src/gap_buffer.h"
     "src/helpers.h"
     "src/err.h"
+    "src/views/round_end_view.h"
 )
 
 # Create executable
