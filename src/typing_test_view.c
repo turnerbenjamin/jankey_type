@@ -73,7 +73,7 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
     }
 
     // Initialise buffer
-    gap_buff_init(err, &v->buff, test_str, str_len);
+    gap_buff_init(err, &v->buff, test_str, str_len, COLOR_PAIR_WHITE);
     if (*err) {
         typing_test_view_destroy(&v);
         return;
@@ -91,10 +91,11 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
 }
 
 const char *typing_test_view_charat(TypingTestView *v, size_t i) {
-    return gap_buff_getchar(v->buff, i);
+    return &gap_buff_getchar(v->buff, i)->value;
 }
 
-size_t typing_test_view_typechar(TypingTestView *v, char *c, TTV_TYPEMODE m) {
+size_t typing_test_view_typechar(TypingTestView *v, char *c,
+                                 unsigned color_pair_id, TTV_TYPEMODE m) {
 
     size_t buff_len = gap_buff_getlen(v->buff);
     if (v->cursor_i >= buff_len - 1) {
@@ -102,9 +103,9 @@ size_t typing_test_view_typechar(TypingTestView *v, char *c, TTV_TYPEMODE m) {
     }
 
     if (m == TTV_TYPEMODE_OVERTYPE) {
-        gap_buff_replacechar(v->buff, c);
+        gap_buff_replacechar(v->buff, c, color_pair_id);
     } else {
-        gap_buff_insertchar(v->buff, c);
+        gap_buff_insertchar(v->buff, c, color_pair_id);
     }
 
     return ++v->cursor_i;
@@ -120,12 +121,12 @@ size_t typing_test_view_deletechar(TypingTestView *v, char *c) {
     gap_buff_mvcursor(&err, v->buff, v->cursor_i);
 
     if (c) {
-        gap_buff_replacechar(v->buff, c);
+        gap_buff_replacechar(v->buff, c, COLOR_PAIR_WHITE);
     }
     return v->cursor_i;
 }
 
-void typing_test_view_render(Err **err, TypingTestView *v, size_t correct_to) {
+void typing_test_view_render(Err **err, TypingTestView *v) {
 
     ttv_calculate_lines(err, v);
 
@@ -136,7 +137,6 @@ void typing_test_view_render(Err **err, TypingTestView *v, size_t correct_to) {
     size_t line_count = v->lines_len;
     size_t width = v->width;
     size_t current_line_number = v->cursor_line_i;
-    size_t cursor_i = v->cursor_i;
 
     // Determine lines to render based on the index to be centered
     size_t first_line_i;
@@ -154,7 +154,6 @@ void typing_test_view_render(Err **err, TypingTestView *v, size_t correct_to) {
 
     size_t last_line_i = MIN_N(first_line_i + WIN_HEIGHT - 1, line_count - 1);
 
-    wattron(win, COLOR_PAIR(COLOR_PAIR_GREEN));
     // Render each visible line in the window
     for (size_t line_i = first_line_i; line_i <= last_line_i; line_i++) {
         // store current line and move cursor to start of win row
@@ -178,20 +177,10 @@ void typing_test_view_render(Err **err, TypingTestView *v, size_t correct_to) {
 
         // Render line from buffer
         for (size_t char_count = 0; char_count < line_len; char_count++) {
-            size_t buff_i = char_count + current_line.start_i;
-            const char *ch_ptr = gap_buff_nextchar(buff);
-
-            chtype color_pair = COLOR_PAIR(COLOR_PAIR_WHITE);
-
-            // Set red
-            if (buff_i < correct_to) {
-                color_pair = COLOR_PAIR(COLOR_PAIR_GREEN);
-            } else if (buff_i < cursor_i) {
-                color_pair = COLOR_PAIR(COLOR_PAIR_RED);
-            }
-
-            wattron(win, color_pair);
-            waddch(win, (unsigned char)(*ch_ptr == ' ' ? '_' : *ch_ptr));
+            const FormattedChar *ch_ptr = gap_buff_nextchar(buff);
+            wattron(win, COLOR_PAIR(ch_ptr->colour_pair));
+            waddch(win,
+                   (unsigned char)(ch_ptr->value == ' ' ? '_' : ch_ptr->value));
         }
         wclrtoeol(win);
     }
@@ -267,12 +256,11 @@ void ttv_calculate_lines(Err **err, TypingTestView *v) {
         }
 
         // Adjust line-end for word-wrapping
-        const char *c;
         bool non_alpha_char_found = false;
         if (line_end_i != buff_len - 1) {
             while (line_end_i > line_start_i) {
-                c = gap_buff_getchar(v->buff, line_end_i);
-                bool is_alpha = isalpha(*c);
+                const char c = gap_buff_getchar(v->buff, line_end_i)->value;
+                bool is_alpha = isalpha(c);
                 if (is_alpha) {
                     if (non_alpha_char_found) {
                         line_end_i = line_end_i + 1;

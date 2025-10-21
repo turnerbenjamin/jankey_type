@@ -1,5 +1,6 @@
 
 #include "typing_test.h"
+#include "constants.h"
 #include "err.h"
 #include "typing_test_view.h"
 #include "word_store.h"
@@ -64,9 +65,8 @@ void typing_test_start(Err **err, TypingTest *tt) {
     char c;
     size_t i = 0;
     size_t last_i = 0;
-    size_t correct_to = 0;
 
-    typing_test_view_render(err, tt->view, correct_to);
+    typing_test_view_render(err, tt->view);
     while (true) {
         int ui = getch();
         if (ui < 0) {
@@ -78,9 +78,6 @@ void typing_test_start(Err **err, TypingTest *tt) {
             }
             char correct_char = tt->test_str[i - 1];
             i = typing_test_view_deletechar(tt->view, &correct_char);
-            if (i < correct_to) {
-                correct_to = i;
-            }
         } else {
             c = (char)ui;
             if (!isprint(c)) {
@@ -88,18 +85,17 @@ void typing_test_start(Err **err, TypingTest *tt) {
             }
 
             char correct_char = tt->test_str[i];
-            if (correct_char == c && i == correct_to) {
-                correct_to++;
-            }
+            unsigned format =
+                correct_char == c ? COLOR_PAIR_GREEN : COLOR_PAIR_RED;
             TTV_TYPEMODE m =
                 c == 'X' ? TTV_TYPEMODE_INSERT : TTV_TYPEMODE_OVERTYPE;
 
-            i = typing_test_view_typechar(tt->view, &c, m);
+            i = typing_test_view_typechar(tt->view, &c, format, m);
             if (i == last_i) {
                 break;
             }
         }
-        typing_test_view_render(err, tt->view, correct_to);
+        typing_test_view_render(err, tt->view);
         last_i = i;
     }
 }
@@ -110,11 +106,12 @@ void tt_runbench(Err **err, TypingTest *tt) {
     size_t chars = 0;
     while (true) {
         char c = tt->test_str[chars++];
-        typing_test_view_typechar(tt->view, &c, TTV_TYPEMODE_OVERTYPE);
+        typing_test_view_typechar(tt->view, &c, COLOR_PAIR_WHITE,
+                                  TTV_TYPEMODE_OVERTYPE);
         if (chars == tt->test_str_len) {
             break;
         }
-        typing_test_view_render(err, tt->view, 0);
+        typing_test_view_render(err, tt->view);
     }
     clock_gettime(CLOCK_MONOTONIC, &end);
 
