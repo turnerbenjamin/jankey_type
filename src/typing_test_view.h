@@ -14,6 +14,9 @@ typedef enum TTV_TYPEMODE {
 void typing_test_view_init(Err **err, TypingTestView **view_ptr,
                            const char *test_str, size_t test_str_len);
 
+void typing_test_view_reset(Err **err, TypingTestView *view,
+                            const char *test_str, size_t str_len);
+
 size_t typing_test_view_typechar(TypingTestView *v, char *c,
                                  unsigned color_pair_id, TTV_TYPEMODE m);
 

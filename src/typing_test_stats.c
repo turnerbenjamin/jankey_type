@@ -1,15 +1,17 @@
 #include "typing_test_stats.h"
 #include "err.h"
 #include "helpers.h"
+#include "time.h"
 #include <threads.h>
-#include <time.h>
 #include <unistd.h>
 
-struct TypingTestStats {
+typedef struct TypingTestStats {
     struct timespec start;
     struct timespec end;
     double elapsedSec;
-};
+    double wpm;
+    double accuracy;
+} TypingTestStats;
 
 void tt_stats_init(Err **err, TypingTestStats **stats) {
 
@@ -29,6 +31,8 @@ void tt_stats_reset(TypingTestStats *stats) {
     stats->end.tv_nsec = 0;
 
     stats->elapsedSec = 0.;
+    stats->wpm = 0;
+    stats->accuracy = 0;
 }
 
 void tt_stats_start(TypingTestStats *stats) {
@@ -42,11 +46,17 @@ void tt_stats_stop(TypingTestStats *stats) {
         (double)(stats->end.tv_nsec - stats->start.tv_nsec) / 1000000000.0f;
 }
 
-double tt_stats_getwpm(TypingTestStats *stats, size_t chars_typed) {
+void tt_stats_setwpm(TypingTestStats *s, size_t chars_typed) {
     double words = ((double)chars_typed / (double)5);
-    double minutes = stats->elapsedSec / 60.0f;
-    return words / minutes;
+    double minutes = s->elapsedSec / 60.0f;
+    s->wpm = words / minutes;
 }
+void tt_stats_setAccuracy(TypingTestStats *s, double a) { s->accuracy = a; }
+
+double tt_stats_getwpm(TypingTestStats *s) { return s->wpm; }
+double tt_stats_getAccuracy(TypingTestStats *s) { return s->accuracy; }
+double tt_stats_getSecondsElapsed(TypingTestStats *s) { return s->elapsedSec; }
+
 void tt_stats_destoy(TypingTestStats **stats) {
     if (!stats || !*stats) {
         return;

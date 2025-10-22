@@ -10,8 +10,11 @@ typedef struct FormattedChar {
     unsigned colour_pair;
 } FormattedChar;
 
-void gap_buff_init(Err **err, GapBuff **gap_buff, const char *init_buff,
-                   size_t init_buff_len, unsigned defaultFormat);
+void gap_buff_init(Err **err, GapBuff **gap_buff, const char *seed_buff,
+                   size_t seed_buff_len, unsigned defaultFormat);
+
+void gap_buff_reset(Err **err, GapBuff *gb, const char *seed_buff,
+                    size_t seed_buff_len, unsigned defaultFormat);
 void gap_buff_mvcursor(Err **err, GapBuff *gap_buff, size_t i);
 const FormattedChar *gap_buff_nextchar(GapBuff *gb);
 const FormattedChar *gap_buff_getchar(GapBuff *gb, size_t i);

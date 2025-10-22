@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <stdlib.h>
 
+static size_t min_gap_len = 128;
+
 typedef struct GapBuff {
     size_t gap_l;
     size_t gap_r;
@@ -15,32 +17,61 @@ typedef struct GapBuff {
 
 size_t gb_getbuffi(GapBuff *gb, size_t i);
 void gb_mvgapaftercursor(GapBuff *gb);
+void gb_setup(Err **err, GapBuff *gb, const char *init_buff,
+              size_t init_buff_len, unsigned default_format);
 
-void gap_buff_init(Err **err, GapBuff **gap_buff, const char *init_buff,
-                   size_t init_buff_len, unsigned default_format) {
-    // Allocate memory for gap buffer
-    size_t gap_size = 16;
-    size_t buff_size = (gap_size + init_buff_len) * sizeof(FormattedChar);
+void gap_buff_init(Err **err, GapBuff **gap_buff, const char *seed_buff,
+                   size_t seed_buff_len, unsigned default_format) {
+
+    // Buffer is reussed for each test, generous buffer size allocated to
+    // minimise reallocations
+    size_t required_len = seed_buff_len + min_gap_len;
+    size_t initial_buff_len = required_len * 2;
+    size_t buff_size = initial_buff_len * sizeof(((GapBuff *)0)->buff[0]);
+
     GapBuff *gb = ZALLOC(sizeof(*gb) + buff_size);
     if (!gb) {
         *err = ERR_MAKE("Unable to allocate memory for gap_buff");
         return;
     }
-    gb->buff_len = buff_size;
+    gb->buff_len = initial_buff_len;
+
+    gb_setup(err, gb, seed_buff, seed_buff_len, default_format);
+    *gap_buff = gb;
+}
+
+void gap_buff_reset(Err **err, GapBuff *gb, const char *seed_buff,
+                    size_t seed_buff_len, unsigned default_format) {
+    gb_setup(err, gb, seed_buff, seed_buff_len, default_format);
+}
+
+void gb_setup(Err **err, GapBuff *gb, const char *init_buff,
+              size_t init_buff_len, unsigned default_format) {
+    size_t required_len = init_buff_len + min_gap_len;
+    if (gb->buff_len < required_len) {
+        gb->buff_len = required_len * 2;
+        GapBuff *t =
+            realloc(gb, sizeof(*t) + (gb->buff_len * sizeof(t->buff[0])));
+        if (!t) {
+            *err = ERR_MAKE("Unable to reallocate gap buffer");
+            gap_buff_destroy(&gb);
+            return;
+        } else {
+            gb = t;
+            t = NULL;
+        }
+    }
 
     // Init cursor position and gap at the end of the buffer
     gb->cursor_pos = init_buff_len - 1;
     gb->gap_l = init_buff_len;
-    gb->gap_r = buff_size - 1;
+    gb->gap_r = gb->buff_len - 1;
 
-    // Copy init data to buff
-    for (size_t i = 0; i < init_buff_len && i < buff_size; i++) {
+    for (size_t i = 0; i < init_buff_len; i++) {
         FormattedChar c = {.value = init_buff[i],
                            .colour_pair = default_format};
         gb->buff[i] = c;
     }
-
-    *gap_buff = gb;
 }
 
 size_t gap_buff_getlen(GapBuff *gb) {

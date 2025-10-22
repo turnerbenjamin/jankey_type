@@ -82,14 +82,15 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
     }
     gap_buff_mvcursor(err, v->buff, (size_t)0);
 
-    // Initialise line data for the view
-    ttv_calculate_lines(err, v);
-    if (*err) {
-        typing_test_view_destroy(&v);
-        return;
-    }
-
     *tgt = v;
+}
+
+void typing_test_view_reset(Err **err, TypingTestView *tgt,
+                            const char *test_str, size_t str_len) {
+    gap_buff_reset(err, tgt->buff, test_str, str_len, COLOR_PAIR_WHITE);
+    tgt->cursor_i = 0;
+    tgt->cursor_line_i = 0;
+    tgt->lines_len = 0;
 }
 
 const char *typing_test_view_charat(TypingTestView *v, size_t i) {

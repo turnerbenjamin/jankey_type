@@ -3,11 +3,13 @@
 
 #include "constants.h"
 #include "err.h"
+#include "typing_test_stats.h"
 
 typedef struct PostRoundModal PostRoundModal;
 
 void post_round_modal_init(Err **err, PostRoundModal **modal);
-void post_round_modal_run(Err **err, JankeyState *state, PostRoundModal *modal);
+void post_round_modal_run(Err **err, JankeyState *state, PostRoundModal *modal,
+                          TypingTestStats *stats);
 void post_round_modal_destroy(PostRoundModal **view);
 
 #endif

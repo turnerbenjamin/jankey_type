@@ -5,12 +5,13 @@
 #include "ncurses.h"
 #include "stdlib.h"
 #include "string.h"
+#include "typing_test_stats.h"
 
 struct PostRoundModal {
     WINDOW *win;
 };
 
-void post_round_modal_render(PostRoundModal *modal);
+void prm_render(PostRoundModal *modal, TypingTestStats *stats);
 
 void post_round_modal_init(Err **err, PostRoundModal **modal) {
     PostRoundModal *m = ZALLOC(sizeof(*m));
@@ -33,12 +34,12 @@ void post_round_modal_init(Err **err, PostRoundModal **modal) {
     *modal = m;
 }
 
-void post_round_modal_run(Err **err, JankeyState *state,
-                          PostRoundModal *modal) {
+void post_round_modal_run(Err **err, JankeyState *state, PostRoundModal *modal,
+                          TypingTestStats *stats) {
     if (*err) {
         return;
     }
-    post_round_modal_render(modal);
+    prm_render(modal, stats);
     while (true) {
         int ui = getch();
         if (ui < 0) {
@@ -63,18 +64,20 @@ void post_round_modal_run(Err **err, JankeyState *state,
     refresh();
 }
 
-void post_round_modal_render(PostRoundModal *modal) {
+void prm_render(PostRoundModal *modal, TypingTestStats *s) {
     curs_set(0);
 
     box(modal->win, 0, 0);
 
     const char *instructions = " [N]ew    [Q]uit ";
+
     wmove(modal->win, 2, 2);
-    waddstr(modal->win, "TIME            65s");
+    wprintw(modal->win, "TIME            %.2lfs",
+            tt_stats_getSecondsElapsed(s));
     wmove(modal->win, 3, 2);
-    waddstr(modal->win, "WPM:            15.6");
+    wprintw(modal->win, "WPM:            %.2lf", tt_stats_getwpm(s));
     wmove(modal->win, 4, 2);
-    waddstr(modal->win, "ACCURACY:       95%");
+    wprintw(modal->win, "ACCURACY:       %.2lf%%", tt_stats_getAccuracy(s));
 
     wmove(modal->win, 6, (int)((50 - strlen(instructions)) / 2));
     waddstr(modal->win, instructions);

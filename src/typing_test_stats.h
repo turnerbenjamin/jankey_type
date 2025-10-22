@@ -10,6 +10,7 @@
 #endif
 
 #include "err.h"
+#include "time.h"
 
 typedef struct TypingTestStats TypingTestStats;
 
@@ -17,7 +18,13 @@ void tt_stats_init(Err **err, TypingTestStats **stats);
 void tt_stats_start(TypingTestStats *stats);
 void tt_stats_stop(TypingTestStats *stats);
 void tt_stats_reset(TypingTestStats *stats);
-double tt_stats_getwpm(TypingTestStats *stats, size_t chars_typed);
 void tt_stats_destoy(TypingTestStats **stats);
+
+void tt_stats_setwpm(TypingTestStats *stats, size_t chars_typed);
+void tt_stats_setAccuracy(TypingTestStats *stats, double accuracy);
+
+double tt_stats_getwpm(TypingTestStats *stats);
+double tt_stats_getAccuracy(TypingTestStats *stats);
+double tt_stats_getSecondsElapsed(TypingTestStats *stats);
 
 #endif
