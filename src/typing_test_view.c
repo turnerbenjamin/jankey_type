@@ -65,7 +65,9 @@ void typing_test_view_init(Err **err, TypingTestView **tgt,
         return;
     }
 
-    v->win = newwin(WIN_HEIGHT, (int)v->width, 2, (COLS - (int)v->width) / 2);
+    int x = (COLS - (int)(v->width)) / 2;
+    int y = (LINES - (int)(WIN_HEIGHT)) / 2;
+    v->win = newwin(WIN_HEIGHT, (int)v->width, y, x);
     if (!v->win) {
         *err = ERR_MAKE("Unable to initialise ncurses window");
         typing_test_view_destroy(&v);

@@ -1,7 +1,6 @@
 #include "constants.h"
 #include "err.h"
-#include "typing_test.h"
-#include "word_store.h"
+#include "jankey_type.h"
 #include <ncurses.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -9,65 +8,46 @@
 
 void init_ncurses(Err **err);
 void cleanup_ncurses(void);
+void clean_up(Err **err, JankeyType **jt);
 
 int main() {
     Err *err = NULL;
+    JankeyType *jt = NULL;
+
+    srand((unsigned int)time(NULL));
 
     init_ncurses(&err);
     if (err) {
-        cleanup_ncurses();
-        err_print(err, stderr);
-        err_destroy(&err);
+        clean_up(&err, &jt);
         return EXIT_FAILURE;
     }
-    srand((unsigned int)time(NULL));
 
-    WordStore *ws;
-    word_store_init(&err, &ws, "dict/en_gb.txt");
+    jankey_type_init(&err, &jt);
     if (err) {
-        word_store_destroy(&ws);
-
-        cleanup_ncurses();
-
-        err_print(err, stderr);
-        err_destroy(&err);
+        clean_up(&err, &jt);
         return EXIT_FAILURE;
     }
 
-    TypingTest *tt;
-    typing_test_init(&err, &tt, ws, WORDS_PER_TEST);
+    jankey_type_run(&err, jt, JANKEY_STATE_RUNNING_TEST);
     if (err) {
-
-        typing_test_destroy(&tt);
-        word_store_destroy(&ws);
-
-        cleanup_ncurses();
-
-        err_print(err, stderr);
-        err_destroy(&err);
-
+        clean_up(&err, &jt);
         return EXIT_FAILURE;
     }
 
-    typing_test_start(&err, tt);
-    if (err) {
-        typing_test_destroy(&tt);
-        word_store_destroy(&ws);
-
-        cleanup_ncurses();
-
-        err_print(err, stderr);
-        err_destroy(&err);
-
-        return EXIT_FAILURE;
-    }
-
-    typing_test_destroy(&tt);
-    word_store_destroy(&ws);
-    err_destroy(&err);
-
-    cleanup_ncurses();
+    clean_up(&err, &jt);
     return EXIT_SUCCESS;
+}
+
+void clean_up(Err **err, JankeyType **jt) {
+    cleanup_ncurses();
+
+    if (err && *err) {
+        err_print(*err, stderr);
+        err_destroy(err);
+    }
+    if (jt && *jt) {
+        jankey_type_destroy(jt);
+    }
 }
 
 void init_ncurses(Err **err) {

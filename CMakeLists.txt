@@ -18,27 +18,29 @@ pkg_check_modules(NCURSES REQUIRED ncurses)
 
 # Collect all .c files from src directory
 set(SOURCES 
+    "src/err.c"
+    "src/gap_buffer.c"
+    "src/helpers.c"
+    "src/jankey_type.c"
     "src/main.c"
+    "src/post_round_modal.c"
     "src/typing_test.c"
     "src/typing_test_stats.c"
     "src/typing_test_view.c"
     "src/word_store.c"
-    "src/gap_buffer.c"
-    "src/err.c"
-    "src/helpers.c"
-    "src/views/round_end_view.c"
 )
 
 set(HEADERS
     "src/constants.h"
+    "src/err.h"
+    "src/gap_buffer.h"
+    "src/helpers.h"
+    "src/jankey_type.h"
+    "src/post_round_modal.c"
     "src/typing_test.h"
     "src/typing_test_stats.h"
     "src/typing_test_view.h"
     "src/word_store.h"
-    "src/gap_buffer.h"
-    "src/helpers.h"
-    "src/err.h"
-    "src/views/round_end_view.h"
 )
 
 # Create executable

@@ -2,9 +2,9 @@
 #include "typing_test.h"
 #include "constants.h"
 #include "err.h"
+#include "jankey_type.h"
 #include "typing_test_stats.h"
 #include "typing_test_view.h"
-#include "views/round_end_view.h"
 #include "word_store.h"
 #include <ctype.h>
 #include <limits.h>
@@ -53,34 +53,18 @@ void typing_test_init(Err **err, TypingTest **typing_test, WordStore *ws,
     return;
 }
 
-void typing_test_start(Err **err, TypingTest *tt) {
+void typing_test_run(Err **err, JankeyState *state, TypingTest *tt) {
     if (!tt) {
         *err = ERR_MAKE("Typing test is null");
         return;
     }
 
+    clear();
+    refresh();
     tt_stats_reset(tt->stats);
     tt_stats_start(tt->stats);
-
     typing_test_view_render(err, tt->view);
 
-    RoundEndView *round_end_view;
-    ttv_roundend_init(err, &round_end_view);
-    if (*err) {
-        return;
-    }
-    ttv_roundend_render(err, round_end_view);
-    while (true) {
-        int ui = getch();
-        if (ui == KEY_BACKSPACE || ui == 127 || ui == 8) {
-            ttv_roundend_destroy(&round_end_view);
-            clear();
-            refresh();
-            break;
-        }
-    }
-
-    typing_test_view_render(err, tt->view);
     char c;
     size_t i = 0;
     size_t last_i = 0;
@@ -117,8 +101,7 @@ void typing_test_start(Err **err, TypingTest *tt) {
     }
     tt_stats_stop(tt->stats);
 
-    double wpm = tt_stats_getwpm(tt->stats, tt->test_str_len);
-    *err = ERR_MAKE("WPM: %.2lf", wpm);
+    *state = JANKEY_STATE_DISPLAYING_POST_TEST_MODAL;
 }
 
 void typing_test_destroy(TypingTest **typing_test) {
