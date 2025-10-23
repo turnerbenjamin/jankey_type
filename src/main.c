@@ -63,6 +63,7 @@ void init_ncurses(Err **err) {
     refresh();
     cbreak();
     noecho();
+
     keypad(stdscr, TRUE);
 
     if (init_extended_pair(COLOR_PAIR_WHITE, COLOR_WHITE, COLOR_BLACK) == ERR) {

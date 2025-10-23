@@ -100,15 +100,18 @@ const char *typing_test_view_charat(TypingTestView *v, size_t i) {
 size_t typing_test_view_typechar(TypingTestView *v, char *c,
                                  unsigned color_pair_id, TTV_TYPEMODE m) {
 
+    gap_buff_mvcursor(NULL, v->buff, v->cursor_i);
+
     size_t buff_len = gap_buff_getlen(v->buff);
-    if (v->cursor_i >= buff_len - 1) {
-        return v->cursor_i;
-    }
 
     if (m == TTV_TYPEMODE_OVERTYPE) {
         gap_buff_replacechar(v->buff, c, color_pair_id);
     } else {
         gap_buff_insertchar(v->buff, c, color_pair_id);
+    }
+
+    if (v->cursor_i >= buff_len - 1) {
+        return v->cursor_i;
     }
 
     return ++v->cursor_i;

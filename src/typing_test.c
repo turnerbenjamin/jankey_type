@@ -1,4 +1,4 @@
-
+#define _POSIX_C_SOURCE 199309L
 #include "typing_test.h"
 #include "constants.h"
 #include "err.h"
@@ -6,7 +6,6 @@
 #include "typing_test_stats.h"
 #include "typing_test_view.h"
 #include "word_store.h"
-#include <ctype.h>
 #include <limits.h>
 #include <ncurses.h>
 #include <stdbool.h>
@@ -15,12 +14,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 struct TypingTest {
     TypingTestView *view;
     char *test_str;
     uint64_t test_str_len;
+    bool test_started;
+    double typed_char_count;
+    double correct_char_count;
 };
+
+size_t tt_update(TypingTest *tt, TypingTestStats *stats, size_t index,
+                 int input);
 
 void typing_test_init(Err **err, TypingTest **typing_test) {
 
@@ -62,6 +68,11 @@ void typing_test_run(Err **err, JankeyState *state, TypingTest *tt,
         typing_test_view_reset(err, tt->view, tt->test_str, tt->test_str_len);
     }
 
+    // Initialise test data
+    tt->test_started = false;
+    tt->typed_char_count = 0.;
+    tt->correct_char_count = 0.;
+
     // Ensure window clear
     clear();
     refresh();
@@ -72,57 +83,68 @@ void typing_test_run(Err **err, JankeyState *state, TypingTest *tt,
     // Render initial view of test string
     typing_test_view_render(err, tt->view);
 
-    char c;
+    // Set delay to target 60 fps refresh rate
+    struct timespec delay = {.tv_sec = 0, .tv_nsec = 16666667};
+
+    // Set non-blocking input to allow polling of all queued input each cycle
+    timeout(0);
+
     size_t i = 0;
-    size_t last_i = 0;
-    bool test_started = false;
-    double typed_char_count = 0.;
-    double correct_char_count = 0.;
-    while (true) {
-        int ui = getch();
-
-        if (ui < 0) {
-            continue;
-        }
-        if (ui == KEY_BACKSPACE || ui == 127 || ui == 8) {
-            if (i == 0) {
-                continue;
-            }
-            char correct_char = tt->test_str[i - 1];
-            i = typing_test_view_deletechar(tt->view, &correct_char);
-        } else {
-            if (!test_started) {
-                tt_stats_start(stats);
-                test_started = true;
-            }
-
-            c = (char)ui;
-            if (!isprint(c)) {
-                continue;
-            }
-            typed_char_count++;
-            char correct_char = tt->test_str[i];
-            if (correct_char == c) {
-                correct_char_count++;
-            }
-            unsigned format =
-                correct_char == c ? COLOR_PAIR_GREEN : COLOR_PAIR_RED;
-            TTV_TYPEMODE m =
-                c == 'X' ? TTV_TYPEMODE_INSERT : TTV_TYPEMODE_OVERTYPE;
-
-            i = typing_test_view_typechar(tt->view, &c, format, m);
-            if (i == last_i) {
+    size_t last_index = 0;
+    bool do_continue = true;
+    while (do_continue) {
+        int ui;
+        bool input_received = false;
+        while ((ui = getch()) >= 0) {
+            input_received = true;
+            i = tt_update(tt, stats, i, ui);
+            if (i == last_index) {
+                do_continue = false;
+                tt_stats_stop(stats);
                 break;
             }
+            last_index = i;
         }
-        typing_test_view_render(err, tt->view);
-        last_i = i;
+        if (input_received) {
+            typing_test_view_render(err, tt->view);
+        }
+        if (do_continue) {
+            nanosleep(&delay, NULL);
+        }
     }
-    tt_stats_stop(stats);
     tt_stats_setwpm(stats, tt->test_str_len);
-    tt_stats_setAccuracy(stats, (correct_char_count / typed_char_count) * 100.);
+    tt_stats_setAccuracy(
+        stats, (tt->correct_char_count / tt->typed_char_count) * 100.);
 
     *state = JANKEY_STATE_DISPLAYING_POST_TEST_MODAL;
+    timeout(-1);
+}
+
+size_t tt_update(TypingTest *tt, TypingTestStats *stats, size_t index,
+                 int input) {
+    if (input == KEY_BACKSPACE || input == 127 || input == 8) {
+        if (index > 0) {
+            char correct_char = tt->test_str[index - 1];
+            index = typing_test_view_deletechar(tt->view, &correct_char);
+        }
+    } else {
+        if (!tt->test_started) {
+            tt_stats_start(stats);
+            tt->test_started = true;
+        }
+
+        char c = (char)input;
+        tt->typed_char_count++;
+        char correct_char = tt->test_str[index];
+        if (correct_char == c) {
+            tt->correct_char_count++;
+        }
+        unsigned format = correct_char == c ? COLOR_PAIR_GREEN : COLOR_PAIR_RED;
+        TTV_TYPEMODE m = c == 'X' ? TTV_TYPEMODE_INSERT : TTV_TYPEMODE_OVERTYPE;
+
+        index = typing_test_view_typechar(tt->view, &c, format, m);
+    }
+    return index;
 }
 
 void typing_test_destroy(TypingTest **typing_test) {

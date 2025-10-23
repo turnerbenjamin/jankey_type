@@ -7,7 +7,7 @@ typedef enum JankeyState {
     JANKEY_STATE_QUITTING
 } JankeyState;
 
-#define WORDS_PER_TEST (size_t)25
+#define WORDS_PER_TEST (size_t)8
 #define MAX_CHARS_PER_LINE 66
 #define MAX_TEST_WIN_ROWS 3
 #define MIN_WIN_WIDTH 24
